@@ -51,6 +51,15 @@ CBC_SYNONYMS: dict[str, list[str]] = {
     "Plt": ["plt", "platelet", "platelets", "thrombocyte", "thrombocytes"],
 }
 
+# ---------------------------------------------------------------------------
+# Normalization helpers
+# ---------------------------------------------------------------------------
+
+def _normalize(label: str) -> str:
+    """Lowercase and strip all non-alphanumeric characters (mirrors R normalize_assay_label)."""
+    return re.sub(r"[^a-z0-9]+", "", str(label).lower())
+
+
 # Pre-build lookup dicts: normalized_label → canonical_name
 def _build_lookup(synonyms: dict[str, list[str]]) -> dict[str, str]:
     lookup: dict[str, str] = {}
@@ -61,14 +70,6 @@ def _build_lookup(synonyms: dict[str, list[str]]) -> dict[str, str]:
 
 BMP_SYNONYM_LOOKUP = _build_lookup(BMP_SYNONYMS)
 CBC_SYNONYM_LOOKUP = _build_lookup(CBC_SYNONYMS)
-
-# ---------------------------------------------------------------------------
-# Normalization helpers
-# ---------------------------------------------------------------------------
-
-def _normalize(label: str) -> str:
-    """Lowercase and strip all non-alphanumeric characters (mirrors R normalize_assay_label)."""
-    return re.sub(r"[^a-z0-9]+", "", str(label).lower())
 
 
 def _edit_distance(a: str, b: str) -> int:
