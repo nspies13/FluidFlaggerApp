@@ -44,146 +44,124 @@ from .simulate import (
 _RF_THRESHOLD = 200_000  # use RF below, LightGBM above
 
 
-def _classifier_learning_rate(n_rows: int) -> float:
-    """Scale learning rate down as dataset grows: more data → finer steps."""
-    import math
-    lr = 0.3 * math.sqrt(_RF_THRESHOLD / max(n_rows, _RF_THRESHOLD))
-    return round(max(0.05, min(0.5, lr)), 4)
+
+_CLASSIFIER_GRID = {
+    "n_estimators":      [1000],
+    "max_depth":         [8, 16],
+    "learning_rate":     [0.1, 0.3],
+    "reg_lambda":        [0.1, 1.0],
+}
+
+_REGRESSOR_GRID = {
+    "n_estimators":      [1000],
+    "max_depth":         [8, 16],
+    "learning_rate":     [0.1, 0.3],
+    "alpha":             [0.1, 0.3],
+}
 
 
-def _tune_lgbm_classifier(X, y, n_rows: int, n_trials: int) -> "LGBMClassifier":
+def _tune_lgbm_classifier(X, y) -> tuple:
     """
-    Bayesian HPO for LGBMClassifier scored with log loss.
-    Returns an unfitted LGBMClassifier with the best hyperparameters.
+    Parallel grid search for LGBMClassifier scored with log loss + auROC.
+    Returns (unfitted LGBMClassifier with best params, cv_metrics dict).
     """
-    import optuna
     from lightgbm import LGBMClassifier
-    from sklearn.model_selection import StratifiedKFold, cross_val_score
+    from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-
-    base_lr = _classifier_learning_rate(n_rows)
-    lr_lo = max(0.02, base_lr * 0.3)
-    lr_hi = min(0.9, base_lr * 3.0)
-
-    def objective(trial):
-        params = {
-            "n_estimators":      trial.suggest_int("n_estimators", 200, 2000),
-            "max_depth":         trial.suggest_int("max_depth", 4, 12),
-            "learning_rate":     trial.suggest_float("learning_rate", lr_lo, lr_hi, log=True),
-            "num_leaves":        trial.suggest_int("num_leaves", 20, 300),
-            "min_child_samples": trial.suggest_int("min_child_samples", 10, 100),
-            "reg_lambda":        trial.suggest_float("reg_lambda", 0.01, 10.0, log=True),
-            "subsample":         trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree":  trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "random_state": 123,
-            "verbose": -1,
-        }
-        cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=123)
-        scores = cross_val_score(
-            LGBMClassifier(**params), X, y,
-            cv=cv, scoring="neg_log_loss",
-        )
-        return scores.mean()  # maximize (neg log loss → minimize log loss)
-
-    study = optuna.create_study(
-        direction="maximize",
-        sampler=optuna.samplers.TPESampler(seed=123),
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=123)
+    search = GridSearchCV(
+        LGBMClassifier(random_state=123, verbose=-1),
+        _CLASSIFIER_GRID,
+        scoring={"log_loss": "neg_log_loss", "roc_auc": "roc_auc"},
+        refit="log_loss",
+        cv=cv,
+        n_jobs=-1,
     )
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
-    print(f"  Best log-loss: {-study.best_value:.4f}  params: {study.best_params}")
-    return LGBMClassifier(**study.best_params, random_state=123, verbose=-1)
+    search.fit(X, y)
+    best_idx = search.best_index_
+    cv_log_loss = -search.cv_results_["mean_test_log_loss"][best_idx]
+    cv_auroc    =  search.cv_results_["mean_test_roc_auc"][best_idx]
+    best = search.best_params_
+    print(f"  Best log-loss: {cv_log_loss:.4f}  auROC: {cv_auroc:.4f}  params: {best}")
+    metrics = {"cv_log_loss": round(cv_log_loss, 4), "cv_auroc": round(cv_auroc, 4)}
+    return LGBMClassifier(**best, random_state=123, verbose=-1), metrics
 
 
-def _tune_lgbm_regressor(X, y, n_trials: int) -> "LGBMRegressor":
+def _tune_lgbm_regressor(X, y) -> tuple:
     """
-    Bayesian HPO for LGBMRegressor with pseudo-Huber objective.
-    The CV metric is neg-MAE (a robust proxy); the model trains with objective='huber'.
-    Returns an unfitted LGBMRegressor with the best hyperparameters.
+    Parallel grid search for LGBMRegressor with pseudo-Huber objective.
+    Returns (unfitted LGBMRegressor with best params, cv_metrics dict).
     """
-    import optuna
     from lightgbm import LGBMRegressor
-    from sklearn.model_selection import KFold, cross_val_score
+    from sklearn.model_selection import GridSearchCV, KFold
 
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-
-    def objective(trial):
-        params = {
-            "n_estimators":     trial.suggest_int("n_estimators", 200, 2000),
-            "max_depth":        trial.suggest_int("max_depth", 3, 10),
-            "learning_rate":    trial.suggest_float("learning_rate", 0.1, 0.95, log=True),
-            "num_leaves":       trial.suggest_int("num_leaves", 20, 200),
-            "subsample":        trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "objective":        "huber",
-            "alpha":            trial.suggest_float("alpha", 0.05, 0.5),
-            "random_state": 123,
-            "verbose": -1,
-        }
-        cv = KFold(n_splits=3, shuffle=True, random_state=123)
-        scores = cross_val_score(
-            LGBMRegressor(**params), X, y,
-            cv=cv, scoring="neg_mean_absolute_error",
-        )
-        return scores.mean()  # maximize neg-MAE
-
-    study = optuna.create_study(
-        direction="maximize",
-        sampler=optuna.samplers.TPESampler(seed=123),
+    cv = KFold(n_splits=3, shuffle=True, random_state=123)
+    search = GridSearchCV(
+        LGBMRegressor(objective="huber", random_state=123, verbose=-1),
+        _REGRESSOR_GRID,
+        scoring="neg_mean_absolute_error",
+        refit=True,
+        cv=cv,
+        n_jobs=-1,
     )
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
-    print(f"  Best MAE: {-study.best_value:.4f}  params: {study.best_params}")
-    return LGBMRegressor(**study.best_params, random_state=123, verbose=-1)
+    search.fit(X, y)
+    cv_mae = -search.best_score_
+    best = search.best_params_
+    print(f"  Best MAE: {cv_mae:.4f}  params: {best}")
+    metrics = {"cv_mae": round(cv_mae, 4)}
+    return LGBMRegressor(**best, objective="huber", random_state=123, verbose=-1), metrics
 
 
-def _make_classifier(n_rows: int, X=None, y=None, n_trials: int = 0):
+def _make_classifier(n_rows: int, X, y) -> tuple:
     """
-    Build a classifier. If X/y are provided and n_rows >= RF_THRESHOLD and
-    optuna is available, runs Bayesian HPO (n_trials). Otherwise uses defaults.
+    Build a classifier via parallel grid search. Returns (clf, cv_metrics dict).
+    Falls back to RandomForest if lightgbm is unavailable (no grid search for RF).
     """
     if n_rows < _RF_THRESHOLD:
-        return RandomForestClassifier(n_estimators=500, random_state=123, n_jobs=-1)
-    try:
-        from lightgbm import LGBMClassifier
-    except ImportError:
+        from sklearn.model_selection import cross_validate, StratifiedKFold
+        clf = RandomForestClassifier(n_estimators=500, random_state=123, n_jobs=-1)
+        cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=123)
+        results = cross_validate(clf, X, y, cv=cv,
+                                 scoring={"log_loss": "neg_log_loss", "roc_auc": "roc_auc"},
+                                 n_jobs=-1)
+        metrics = {
+            "cv_log_loss": round(-results["test_log_loss"].mean(), 4),
+            "cv_auroc":    round( results["test_roc_auc"].mean(),  4),
+        }
+        return clf, metrics
+    import importlib.util
+    if importlib.util.find_spec("lightgbm") is None:
         warnings.warn("lightgbm not installed; falling back to RandomForest.")
-        return RandomForestClassifier(n_estimators=500, random_state=123, n_jobs=-1)
+        from sklearn.model_selection import cross_validate, StratifiedKFold
+        clf = RandomForestClassifier(n_estimators=500, random_state=123, n_jobs=-1)
+        cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=123)
+        results = cross_validate(clf, X, y, cv=cv,
+                                 scoring={"log_loss": "neg_log_loss", "roc_auc": "roc_auc"},
+                                 n_jobs=-1)
+        metrics = {
+            "cv_log_loss": round(-results["test_log_loss"].mean(), 4),
+            "cv_auroc":    round( results["test_roc_auc"].mean(),  4),
+        }
+        return clf, metrics
 
-    if n_trials > 0 and X is not None and y is not None:
-        try:
-            return _tune_lgbm_classifier(X, y, n_rows, n_trials)
-        except ImportError:
-            pass  # optuna not available
-
-    lr = _classifier_learning_rate(n_rows)
-    return LGBMClassifier(
-        n_estimators=1000, max_depth=10, learning_rate=lr,
-        min_child_samples=32, reg_lambda=0.1, random_state=123,
-        verbose=-1,
-    )
+    return _tune_lgbm_classifier(X, y)
 
 
-def _make_regressor(X=None, y=None, n_trials: int = 0):
+def _make_regressor(X, y) -> tuple:
     """
-    Build a regressor. If X/y are provided and optuna is available, runs
-    Bayesian HPO with pseudo-Huber objective (n_trials). Otherwise uses defaults.
+    Build a regressor via parallel grid search. Returns (reg, cv_metrics dict).
+    Falls back to GradientBoostingRegressor if lightgbm is unavailable.
     """
-    try:
-        from lightgbm import LGBMRegressor
-    except ImportError:
+    import importlib.util
+    if importlib.util.find_spec("lightgbm") is None:
         from sklearn.ensemble import GradientBoostingRegressor
-        return GradientBoostingRegressor(n_estimators=500, random_state=123)
+        from sklearn.model_selection import cross_validate, KFold
+        reg = GradientBoostingRegressor(n_estimators=500, random_state=123)
+        cv_kf = KFold(n_splits=3, shuffle=True, random_state=123)
+        results = cross_validate(reg, X, y, cv=cv_kf, scoring="neg_mean_absolute_error", n_jobs=-1)
+        return reg, {"cv_mae": round(-results["test_score"].mean(), 4)}
 
-    if n_trials > 0 and X is not None and y is not None:
-        try:
-            return _tune_lgbm_regressor(X, y, n_trials)
-        except ImportError:
-            pass  # optuna not available
-
-    return LGBMRegressor(
-        n_estimators=1000, learning_rate=0.8, objective="huber",
-        alpha=0.1, random_state=123, verbose=-1,
-    )
+    return _tune_lgbm_regressor(X, y)
 
 # ---------------------------------------------------------------------------
 # BMP training
@@ -193,12 +171,10 @@ def train_bmp_models(
     template_df: pd.DataFrame,
     fluids_df: Optional[pd.DataFrame] = None,
     seed: int = 123,
-    n_trials: int = 30,
 ) -> list[dict]:
     """
     Train all BMP contamination models: 9 fluids × 2 timings (Realtime, Retrospective).
-
-    n_trials: Bayesian HPO trials per model (0 = skip HPO, use defaults).
+    Uses parallel grid search (GridSearchCV) for hyperparameter tuning.
     Returns a list of model dicts compatible with model_loader.py.
     """
     if fluids_df is None:
@@ -244,8 +220,8 @@ def train_bmp_models(
         X_realtime_t = realtime_transformer.fit_transform(X_realtime, y)
 
         # Retrospective model
-        print(f"  Retrospective classifier ({n_trials} HPO trials)")
-        retro_clf = _make_classifier(n_rows, X=X_retro_t, y=y, n_trials=n_trials)
+        print("  Retrospective classifier (grid search)")
+        retro_clf, retro_metrics = _make_classifier(n_rows, X_retro_t, y)
         retro_pipe = Pipeline([
             ("features", BMPFeatureTransformer(mode="retrospective")),
             ("clf", retro_clf),
@@ -257,11 +233,12 @@ def train_bmp_models(
             "fluid": fluid_name,
             "panel": "bmp",
             "task": "classification",
+            "cv_metrics": retro_metrics,
         })
 
         # Realtime model
-        print(f"  Realtime classifier ({n_trials} HPO trials)")
-        realtime_clf = _make_classifier(n_rows, X=X_realtime_t, y=y, n_trials=n_trials)
+        print("  Realtime classifier (grid search)")
+        realtime_clf, realtime_metrics = _make_classifier(n_rows, X_realtime_t, y)
         realtime_pipe = Pipeline([
             ("features", BMPFeatureTransformer(mode="realtime")),
             ("clf", realtime_clf),
@@ -273,6 +250,7 @@ def train_bmp_models(
             "fluid": fluid_name,
             "panel": "bmp",
             "task": "classification",
+            "cv_metrics": realtime_metrics,
         })
 
         # Mix ratio regression (retrospective features, contaminated rows only)
@@ -282,8 +260,8 @@ def train_bmp_models(
             y_mix = train_df.loc[contam_mask, "mix_ratio"].fillna(0).values
             mix_transformer = BMPFeatureTransformer(mode="retrospective")
             X_mix_t = mix_transformer.fit_transform(X_mix, y_mix)
-            print(f"  Mix ratio regressor ({n_trials} HPO trials)")
-            mix_reg = _make_regressor(X=X_mix_t, y=y_mix, n_trials=n_trials)
+            print("  Mix ratio regressor (grid search)")
+            mix_reg, mix_metrics = _make_regressor(X_mix_t, y_mix)
             mix_pipe = Pipeline([
                 ("features", BMPFeatureTransformer(mode="retrospective")),
                 ("reg", mix_reg),
@@ -295,6 +273,7 @@ def train_bmp_models(
                 "fluid": fluid_name,
                 "panel": "bmp",
                 "task": "mix_ratio",
+                "cv_metrics": mix_metrics,
             })
 
     return models
@@ -307,12 +286,10 @@ def train_cbc_models(
     template_df: pd.DataFrame,
     seed: int = 123,
     train_mix: bool = True,
-    n_trials: int = 30,
 ) -> list[dict]:
     """
     Train CBC contamination models: Realtime + Retrospective + optional mix ratio.
-
-    n_trials: Bayesian HPO trials per model (0 = skip HPO, use defaults).
+    Uses parallel grid search (GridSearchCV) for hyperparameter tuning.
     Returns a list of model dicts compatible with model_loader.py.
     """
     all_cols = (
@@ -352,8 +329,8 @@ def train_cbc_models(
 
     models = []
 
-    print(f"  Retrospective classifier ({n_trials} HPO trials)")
-    retro_clf = _make_classifier(n_rows, X=X_retro_t, y=y, n_trials=n_trials)
+    print("  Retrospective classifier (grid search)")
+    retro_clf, retro_metrics = _make_classifier(n_rows, X_retro_t, y)
     retro_pipe = Pipeline([
         ("features", CBCFeatureTransformer(mode="retrospective")),
         ("clf", retro_clf),
@@ -365,10 +342,11 @@ def train_cbc_models(
         "fluid": "CBC",
         "panel": "cbc",
         "task": "classification",
+        "cv_metrics": retro_metrics,
     })
 
-    print(f"  Realtime classifier ({n_trials} HPO trials)")
-    realtime_clf = _make_classifier(n_rows, X=X_realtime_t, y=y, n_trials=n_trials)
+    print("  Realtime classifier (grid search)")
+    realtime_clf, realtime_metrics = _make_classifier(n_rows, X_realtime_t, y)
     realtime_pipe = Pipeline([
         ("features", CBCFeatureTransformer(mode="realtime")),
         ("clf", realtime_clf),
@@ -380,6 +358,7 @@ def train_cbc_models(
         "fluid": "CBC",
         "panel": "cbc",
         "task": "classification",
+        "cv_metrics": realtime_metrics,
     })
 
     if train_mix:
@@ -389,8 +368,8 @@ def train_cbc_models(
             y_mix = train_df.loc[contam_mask, "mix_ratio"].values
             mix_transformer = CBCFeatureTransformer(mode="retrospective")
             X_mix_t = mix_transformer.fit_transform(X_mix, y_mix)
-            print(f"  Mix ratio regressor ({n_trials} HPO trials)")
-            mix_reg = _make_regressor(X=X_mix_t, y=y_mix, n_trials=n_trials)
+            print("  Mix ratio regressor (grid search)")
+            mix_reg, mix_metrics = _make_regressor(X_mix_t, y_mix)
             mix_pipe = Pipeline([
                 ("features", CBCFeatureTransformer(mode="retrospective")),
                 ("reg", mix_reg),
@@ -402,12 +381,13 @@ def train_cbc_models(
                 "fluid": "CBC",
                 "panel": "cbc",
                 "task": "mix_ratio",
+                "cv_metrics": mix_metrics,
             })
 
     return models
 
 # ---------------------------------------------------------------------------
-# Save / upload helpers
+# Save / upload / CLI
 # ---------------------------------------------------------------------------
 
 def model_key(model_dict: dict) -> str:
@@ -433,6 +413,25 @@ def save_models(models: list[dict], output_dir: str | Path, compress: int = 3) -
         print(f"Saved: {path}")
         paths.append(path)
     return paths
+
+
+def save_cv_metrics(models: list[dict], output_path: str | Path) -> Path:
+    """Save a cross-validation performance summary CSV for all trained models."""
+    rows = []
+    for m in models:
+        metrics = m.get("cv_metrics", {})
+        row = {
+            "panel": m["panel"],
+            "fluid": m["fluid"],
+            "type": m["type"],
+            "task": m["task"],
+        }
+        row.update(metrics)
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    path = Path(output_path)
+    df.to_csv(path, index=False)
+    return path
 
 
 def upload_models_to_hub(
@@ -461,3 +460,47 @@ def upload_models_to_hub(
             token=token,
         )
     print("Upload complete.")
+
+
+def main():
+    """CLI entry point.
+
+    Usage:
+        python -m src.train --panel bmp --template data/bmp_template.csv
+        python -m src.train --panel cbc --template data/cbc_template.csv --upload
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train FluidFlagger models")
+    parser.add_argument("--panel", choices=["bmp", "cbc"], required=True)
+    parser.add_argument("--template", required=True, help="Wide-format training CSV")
+    parser.add_argument("--fluids", default=None, help="BMP fluid concentrations TSV (uses built-in if omitted)")
+    parser.add_argument("--output", default="models/", help="Output directory for .joblib files")
+    parser.add_argument("--upload", action="store_true", help="Upload models to HF Hub after training")
+    parser.add_argument("--repo", default=None, help="HF Hub model repo ID (overrides HF_MODEL_REPO env var)")
+    args = parser.parse_args()
+
+    template_df = pd.read_csv(args.template)
+    print(f"Loaded template: {len(template_df)} rows")
+
+    if args.panel == "bmp":
+        fluids_df = pd.read_csv(args.fluids, sep=None, engine="python") if args.fluids else None
+        models = train_bmp_models(template_df, fluids_df)
+    else:
+        models = train_cbc_models(template_df)
+
+    paths = save_models(models, args.output)
+    print(f"Saved {len(paths)} model files to {args.output}")
+
+    metrics_path = Path(args.output) / "cross_validation_performance_summary.csv"
+    save_cv_metrics(models, metrics_path)
+    print(f"Saved CV metrics: {metrics_path}")
+
+    if args.upload:
+        from .model_loader import HF_REPO_ID
+        repo = args.repo or HF_REPO_ID
+        upload_models_to_hub(paths, repo_id=repo)
+
+
+if __name__ == "__main__":
+    main()

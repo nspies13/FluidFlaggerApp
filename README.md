@@ -69,7 +69,7 @@ Prior and post values (`sodium_prior`, `sodium_post`, etc.) enable retrospective
 2. Upload in the **Train** tab or run the CLI:
 
 ```bash
-python -m scripts.train_and_upload \
+python -m src.train \
   --panel bmp \
   --template my_training_data.csv \
   --output models/ \
