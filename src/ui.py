@@ -91,12 +91,12 @@ def _build_review_html(row_dict: dict) -> str:
     has_prior = any(v is not None for v in prior_vals)
     has_post  = any(v is not None for v in post_vals)
 
-    S_TABLE  = "border-collapse:collapse;font-size:0.875rem;font-family:inherit;width:100%"
-    S_TH     = "text-align:center;padding:8px 16px;background:#f8fafc;font-weight:600;color:#475569;font-size:0.8125rem;white-space:nowrap"
-    S_LBL    = "text-align:right;padding:8px 16px 8px 0;font-weight:600;font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap"
-    S_TD_P   = "text-align:center;padding:8px 16px;background:#f5f3ff;color:#4b5563;white-space:nowrap"
-    S_TD_O   = "text-align:center;padding:8px 16px;background:#f0fdf4;color:#4b5563;white-space:nowrap"
-    S_TD_C   = "text-align:center;padding:0;white-space:nowrap"
+    S_TABLE  = "border-collapse:collapse;font-size:0.875rem;font-family:inherit;width:100%;border:none"
+    S_TH     = "text-align:center;padding:8px 16px;background:#f8fafc;font-weight:600;font-style:italic;color:#475569;font-size:0.8125rem;white-space:nowrap;border:none"
+    S_LBL    = "text-align:right;padding:8px 6px 8px 6px;font-weight:600;font-style:italic;font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;min-width:60px;border:none"
+    S_TD_P   = "text-align:center;padding:8px 16px;background:#f5f3ff;color:#4b5563;white-space:nowrap;border:none"
+    S_TD_O   = "text-align:center;padding:8px 16px;background:#f0fdf4;color:#4b5563;white-space:nowrap;border:none"
+    S_TD_C   = "text-align:center;padding:0;white-space:nowrap;border:none"
     # Header row
     th_cells = "".join(f'<th style="{S_TH}">{abbr}</th>' for abbr in abbrevs)
     html = f'<tr><th style="{S_LBL}"></th>{th_cells}</tr>'
@@ -149,7 +149,7 @@ def _build_review_html(row_dict: dict) -> str:
         cells = "".join(f'<td style="{S_TD_O}">{_fmt(v)}</td>' for v in post_vals)
         html += f'<tr><td style="{S_LBL};color:#34d399">post</td>{cells}</tr>'
 
-    return f'<div style="overflow-x:auto;margin:4px 0 12px 0"><table style="{S_TABLE}">{html}</table></div>'
+    return f'<div style="overflow-x:auto;margin:4px 0 12px 0;border:none"><table style="{S_TABLE}">{html}</table></div>'
 
 
 
@@ -251,7 +251,7 @@ def _run_bmp_prediction(
     """Core BMP prediction handler. Returns (result_df, csv_path, status_msg)."""
     from .inference import make_bmp_predictions
 
-    if mode == "Upload CSV":
+    if mode == "Upload File":
         if not file_path:
             return None, None, "⚠️ Please upload a CSV file."
         df = preprocess_bmp_data(_read_uploaded_csv(file_path))
@@ -286,7 +286,7 @@ def _run_cbc_prediction(
 ) -> tuple[pd.DataFrame | None, str | None, str]:
     from .inference import make_cbc_predictions
 
-    if mode == "Upload CSV":
+    if mode == "Upload File":
         if not file_path:
             return None, None, "⚠️ Please upload a CSV file."
         df = preprocess_cbc_data(_read_uploaded_csv(file_path))
@@ -347,69 +347,153 @@ def _make_manual_grid(fields: list) -> tuple[list, list, list]:
 
 def build_predict_tab() -> None:
     with gr.Tab("🔬  Predict"):
-        # ── Top controls ──────────────────────────────────────────────
         with gr.Row():
-            with gr.Column(scale=1, min_width=200):
-                panel = gr.Radio(["BMP", "CBC"], value="BMP", label="Panel",
-                                 interactive=True, elem_classes="ff-top-radio")
-
-            with gr.Column(scale=1, min_width=220):
-                input_mode = gr.Radio(
-                    ["Upload CSV", "Manual Entry"],
-                    value="Upload CSV", label="Input Mode",
-                    interactive=True, elem_classes="ff-top-radio",
+            # ── Left sidebar ───────────────────────────────────────────
+            with gr.Column(scale=1, min_width=260):
+                gr.HTML('<p class="ff-section-title">Panel</p>', elem_classes="ff-th")
+                panel = gr.Radio(
+                    ["BMP", "CBC"], value="BMP",
+                    interactive=True, elem_classes="ff-top-radio", show_label=False,
                 )
 
-        # ── Upload section (default) ──────────────────────────────────
-        with gr.Group(visible=True) as upload_section:
-            file_upload = gr.File(label="Upload CSV", file_types=[".csv"])
-            data_preview = gr.DataFrame(
-                label="Data Preview (first 10 rows)",
-                interactive=False, wrap=False, visible=False,
-                elem_classes="ff-preview-table",
-            )
-            preview_info = gr.Markdown("", visible=False, elem_classes="ff-preview-info")
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Prediction Input</p>', elem_classes="ff-th")
+                input_mode = gr.Radio(
+                    ["Upload File", "Manual Entry"],
+                    value="Upload File",
+                    interactive=True, elem_classes="ff-top-radio", show_label=False,
+                )
 
-        # ── Instructions (default, hidden once results appear) ────────
-        instructions = gr.HTML(_INSTRUCTIONS_HTML, visible=True)
+                with gr.Group(visible=True) as upload_section:
+                    file_upload_wide = gr.File(
+                        label="Upload Wide CSV/TSV", file_types=[".csv", ".tsv"],
+                    )
+                    format_badge_wide = gr.HTML("")
+                    file_upload_long = gr.File(
+                        label="Upload Long CSV/TSV", file_types=[".csv", ".tsv"],
+                    )
+                    format_badge_long = gr.HTML("")
 
-        # ── BMP manual grid ───────────────────────────────────────────
-        with gr.Group(visible=False) as bmp_manual_section:
-            bmp_prior, bmp_current, bmp_post = _make_manual_grid(BMP_MANUAL_FIELDS)
-            gr.HTML('<hr class="ff-divider">')
-            fluid_checkboxes = gr.CheckboxGroup(
-                choices=ALL_FLUIDS, value=ALL_FLUIDS, label="Fluid Filter",
-                elem_classes="ff-fluid-filter",
-            )
+                with gr.Group(visible=True) as upload_fluid_section:
+                    fluid_checkboxes_upload = gr.CheckboxGroup(
+                        choices=ALL_FLUIDS, value=ALL_FLUIDS,
+                        label="Fluids to Include",
+                        elem_classes="ff-fluid-filter",
+                    )
 
-        # ── CBC manual grid ───────────────────────────────────────────
-        with gr.Group(visible=False) as cbc_manual_section:
-            cbc_prior, cbc_current, cbc_post = _make_manual_grid(CBC_MANUAL_FIELDS)
+                with gr.Accordion("Custom Models (Optional)", open=False):
+                    custom_model_upload = gr.File(
+                        label="Upload .joblib model file(s)",
+                        file_types=[".joblib"],
+                        file_count="multiple",
+                    )
+                    custom_model_status = gr.Markdown("", elem_classes="ff-status")
 
-        # ── Upload-mode fluid filter ──────────────────────────────────
-        with gr.Group(visible=True) as upload_fluid_section:
-            fluid_checkboxes_upload = gr.CheckboxGroup(
-                choices=ALL_FLUIDS, value=ALL_FLUIDS, label="Fluid Filter",
-                elem_classes="ff-fluid-filter",
-            )
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Actions</p>', elem_classes="ff-th")
+                run_btn = gr.Button("▶  Run Predictions", variant="primary", size="lg")
+                download_btn = gr.DownloadButton(
+                    "⬇  Download Predictions",
+                    visible=False, variant="secondary",
+                    elem_id="predict-download-btn",
+                )
+                status_msg = gr.Markdown("", elem_classes="ff-status")
 
-        # ── Action & results ──────────────────────────────────────────
-        run_btn = gr.Button("▶  Run Prediction", variant="primary", size="lg")
-        status_msg = gr.Markdown("", elem_classes="ff-status")
-        results_table = gr.DataFrame(label="Results", interactive=False, wrap=True, visible=False)
-        download_btn = gr.DownloadButton("⬇  Download CSV", visible=False, variant="secondary")
+            # ── Right main area ────────────────────────────────────────
+            with gr.Column(scale=3):
+                data_preview = gr.DataFrame(
+                    label="Data Preview (first 10 rows)",
+                    interactive=False, wrap=False, visible=False,
+                    elem_classes="ff-preview-table",
+                )
+                preview_info = gr.Markdown("", visible=False, elem_classes="ff-preview-info")
 
-        file_upload.change(_preview_csv, inputs=file_upload, outputs=[data_preview, preview_info])
+                instructions = gr.HTML(_INSTRUCTIONS_HTML, visible=True)
 
-        # ── Toggle callbacks ──────────────────────────────────────────
+                with gr.Group(visible=False) as bmp_manual_section:
+                    bmp_prior, bmp_current, bmp_post = _make_manual_grid(BMP_MANUAL_FIELDS)
+                    gr.HTML('<hr class="ff-divider">')
+                    fluid_checkboxes = gr.CheckboxGroup(
+                        choices=ALL_FLUIDS, value=ALL_FLUIDS, label="Fluid Filter",
+                        elem_classes="ff-fluid-filter",
+                    )
+
+                with gr.Group(visible=False) as cbc_manual_section:
+                    cbc_prior, cbc_current, cbc_post = _make_manual_grid(CBC_MANUAL_FIELDS)
+
+                results_table = gr.DataFrame(
+                    label="Results", interactive=False, wrap=True, visible=False,
+                )
+
+        # ── Format-detection badge helper ──────────────────────────────
+        def _format_badge(file_path):
+            if not file_path:
+                return ""
+            try:
+                df = pd.read_csv(file_path, nrows=2, sep=None, engine="python")
+                cols_upper = {c.upper() for c in df.columns}
+                is_long = "TASK_ASSAY" in cols_upper
+                fmt = "long" if is_long else "wide"
+                bg = "#e0f2fe" if fmt == "wide" else "#fef9c3"
+                border = "#7dd3fc" if fmt == "wide" else "#fde047"
+                fg = "#0369a1" if fmt == "wide" else "#854d0e"
+                return (
+                    f'<span style="display:inline-block;padding:3px 10px;border-radius:9999px;'
+                    f'font-size:0.8rem;font-weight:500;background:{bg};color:{fg};'
+                    f'border:1px solid {border}">Detected format: {fmt}</span>'
+                )
+            except Exception:
+                return ""
+
+        def _on_wide_upload(f):
+            badge = _format_badge(f)
+            preview, info = _preview_csv(f)
+            return badge, preview, info
+
+        def _on_long_upload(f):
+            badge = _format_badge(f)
+            preview, info = _preview_csv(f)
+            return badge, preview, info
+
+        file_upload_wide.change(
+            _on_wide_upload,
+            inputs=file_upload_wide,
+            outputs=[format_badge_wide, data_preview, preview_info],
+        )
+        file_upload_long.change(
+            _on_long_upload,
+            inputs=file_upload_long,
+            outputs=[format_badge_long, data_preview, preview_info],
+        )
+
+        # ── Custom model auto-load ─────────────────────────────────────
+        def _auto_load_models(files):
+            if not files:
+                return ""
+            loaded = []
+            for f in files:
+                try:
+                    m = load_from_file(f)
+                    key = _model_key(m)
+                    cache_model(key, m)
+                    loaded.append(key)
+                except Exception as e:
+                    return f"⚠️ Failed to load {Path(f).name}: {e}"
+            return f"✓ Loaded: {', '.join(loaded)}"
+
+        custom_model_upload.change(
+            _auto_load_models, inputs=custom_model_upload, outputs=custom_model_status,
+        )
+
+        # ── Toggle callbacks ───────────────────────────────────────────
         def _toggle_mode(mode, p):
-            is_upload = mode == "Upload CSV"
+            is_upload = mode == "Upload File"
             is_bmp = p == "BMP"
             return (
                 gr.update(visible=is_upload),                      # upload_section
+                gr.update(visible=is_upload and is_bmp),           # upload_fluid_section
                 gr.update(visible=not is_upload and is_bmp),       # bmp_manual_section
                 gr.update(visible=not is_upload and not is_bmp),   # cbc_manual_section
-                gr.update(visible=is_upload and is_bmp),           # upload_fluid_section
             )
 
         for trigger, inputs in [
@@ -418,22 +502,22 @@ def build_predict_tab() -> None:
         ]:
             trigger.change(
                 _toggle_mode, inputs=inputs,
-                outputs=[upload_section, bmp_manual_section, cbc_manual_section, upload_fluid_section],
+                outputs=[upload_section, upload_fluid_section, bmp_manual_section, cbc_manual_section],
             )
 
-        # ── Prediction callback ───────────────────────────────────────
+        # ── Prediction callback ────────────────────────────────────────
         all_manual = bmp_prior + bmp_current + bmp_post + cbc_prior + cbc_current + cbc_post
         n_bmp3 = len(BMP_MANUAL_FIELDS) * 3
         n_cbc3 = len(CBC_MANUAL_FIELDS) * 3
 
-        def _predict(p, mode, file, fluids_manual, fluids_upload, *vals):
+        def _predict(p, mode, wide_file, long_file, fluids_manual, fluids_upload, *vals):
             fluids = fluids_manual if mode == "Manual Entry" else fluids_upload
             bmp_vals = vals[:n_bmp3]
             cbc_vals = vals[n_bmp3:n_bmp3 + n_cbc3]
             if p == "BMP":
-                df, csv_path, msg = _run_bmp_prediction(mode, file, fluids, *bmp_vals)
+                df, csv_path, msg = _run_bmp_prediction(mode, wide_file, long_file, fluids, *bmp_vals)
             else:
-                df, csv_path, msg = _run_cbc_prediction(mode, file, *cbc_vals)
+                df, csv_path, msg = _run_cbc_prediction(mode, wide_file, long_file, *cbc_vals)
 
             if df is None:
                 return msg, gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
@@ -441,11 +525,13 @@ def build_predict_tab() -> None:
                 msg,
                 gr.update(value=df, visible=True),
                 gr.update(value=csv_path, visible=True),
-                gr.update(visible=False),  # hide instructions
+                gr.update(visible=False),
             )
 
-        _predict_inputs = [panel, input_mode, file_upload,
-                           fluid_checkboxes, fluid_checkboxes_upload] + all_manual
+        _predict_inputs = [
+            panel, input_mode, file_upload_wide, file_upload_long,
+            fluid_checkboxes, fluid_checkboxes_upload,
+        ] + all_manual
         _predict_outputs = [status_msg, results_table, download_btn, instructions]
 
         run_btn.click(
@@ -461,6 +547,15 @@ def build_predict_tab() -> None:
             _predict,
             inputs=_predict_inputs,
             outputs=_predict_outputs,
+        ).then(
+            None,
+            js="""() => {
+                const wrap = document.querySelector('#predict-download-btn');
+                if (wrap) {
+                    const a = wrap.querySelector('a');
+                    if (a && a.href) setTimeout(() => a.click(), 300);
+                }
+            }""",
         )
 
 # ---------------------------------------------------------------------------
@@ -472,86 +567,101 @@ def _run_training(
     template_file: str | None,
     fluids_file: str | None,
     progress: gr.Progress = gr.Progress(),
-) -> tuple[str, str | None, str | None]:
-    """Train models and return (status_message, zip_path_or_none, metrics_csv_path_or_none)."""
+):
+    """Train models, yielding (status_message, zip_update, metrics_update) as training progresses."""
     import zipfile
-    from .train import train_bmp_models, train_cbc_models, save_models, save_cv_metrics
+    from .train import train_bmp_fluid, train_cbc_models, save_models, save_cv_metrics
+
+    _hidden = (gr.update(visible=False), gr.update(visible=False))
 
     if not template_file:
-        return "⚠️ Please upload a training template CSV.", None, None
+        yield "⚠️ Please upload a training template CSV.", *_hidden
+        return
 
     try:
         template_df = pd.read_csv(template_file)
     except Exception as e:
-        return f"Could not read template: {e}", None, None
+        yield f"⚠️ Could not read template: {e}", *_hidden
+        return
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        try:
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
             if panel == "BMP":
-                progress(0.1, desc="Loading fluid concentrations…")
+                from .simulate import get_fluid_concentrations
+                from .train import _available_cores
                 if fluids_file:
                     fluids_df = pd.read_csv(fluids_file, sep=None, engine="python")
                 else:
-                    from .simulate import get_fluid_concentrations
                     fluids_df = get_fluid_concentrations()
 
-                progress(0.2, desc="Training BMP models (this may take several minutes)…")
-                models = train_bmp_models(template_df, fluids_df)
+                n_total = len(fluids_df)
+                n_inner = max(1, _available_cores() // 3)
+                all_rows = list(fluids_df.iterrows())
+                models = []
+
+                for i, (_, fluid_row) in enumerate(all_rows):
+                    fluid_name = fluid_row["fluid"]
+                    remaining = n_total - i - 1
+                    suffix = f"{remaining} more to go" if remaining > 0 else "last one!"
+                    yield (
+                        f"⏳ Training **{fluid_name}** — retrospective, realtime & mix ratio"
+                        f" ({i + 1} / {n_total}, {suffix}). This may take a while…",
+                        *_hidden,
+                    )
+                    progress(i / n_total, desc=f"Training {fluid_name} ({i+1}/{n_total})…")
+                    n_rows = len(template_df)
+                    models.extend(train_bmp_fluid(template_df, fluid_row, n_rows,
+                                                  n_inner_jobs=n_inner))
+
             else:
-                progress(0.2, desc="Training CBC models…")
+                yield "⏳ Training **CBC** — retrospective, realtime & mix ratio. This may take a while…", *_hidden
+                progress(0.1, desc="Training CBC models…")
                 models = train_cbc_models(template_df)
 
-            progress(0.8, desc="Saving models…")
+            yield "⏳ Saving models…", *_hidden
+            progress(0.9, desc="Saving models…")
             paths = save_models(models, tmpdir)
 
-            # Zip all .joblib files for download
             zip_path = tempfile.mktemp(suffix=".zip")
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 for p in paths:
                     zf.write(p, arcname=Path(p).name)
 
-            # Save CV metrics CSV
             metrics_csv_path = tempfile.mktemp(suffix=".csv")
             save_cv_metrics(models, metrics_csv_path)
 
-            # Also load into cache so they can be used immediately
             for m in models:
                 cache_model(_model_key(m), m)
 
             progress(1.0, desc="Done.")
-            return f"✓ Trained {len(models)} models. Download below.", zip_path, metrics_csv_path
+            yield (
+                f"✓ Trained {len(models)} models successfully. Download below.",
+                gr.update(value=zip_path, visible=True),
+                gr.update(value=metrics_csv_path, visible=True),
+            )
 
-        except Exception:
-            return f"Training failed:\n{traceback.format_exc()}", None, None
+    except Exception:
+        yield f"⚠️ Training failed:\n{traceback.format_exc()}", *_hidden
 
 
 def build_train_tab() -> None:
     with gr.Tab("⚙️  Train"):
         with gr.Row():
-            with gr.Column():
-                gr.HTML('<p class="ff-section-title">Train Custom Models</p>')
-                gr.Markdown(
-                    "Upload a wide-format CSV (one row per draw). "
-                    "Prior/post columns (`sodium_prior`, `sodium_post`, …) are required for retrospective models."
-                )
-                panel = gr.Radio(["BMP", "CBC"], value="BMP", label="Panel", interactive=True)
+            # ── Left sidebar ───────────────────────────────────────────
+            with gr.Column(scale=1, min_width=260):
+                gr.HTML('<p class="ff-section-title">Panel</p>', elem_classes="ff-th")
+                panel = gr.Radio(["BMP", "CBC"], value="BMP", interactive=True,
+                                 elem_classes="ff-top-radio", show_label=False)
+
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Training Data</p>', elem_classes="ff-th")
                 template_file = gr.File(label="Training template CSV", file_types=[".csv"])
-                template_preview = gr.DataFrame(
-                    label="Template Preview (first 10 rows)",
-                    interactive=False, wrap=False, visible=False,
-                )
-                template_info = gr.Markdown("", visible=False)
 
                 with gr.Group() as bmp_train_extras:
                     fluids_file = gr.File(
-                        label="Fluid concentrations TSV (optional — uses built-in defaults if omitted)",
+                        label="Fluid concentrations TSV (optional)",
                         file_types=[".tsv", ".csv"],
                     )
-                    fluids_preview = gr.DataFrame(
-                        label="Fluids Preview (first 10 rows)",
-                        interactive=False, wrap=False, visible=False,
-                    )
-                    fluids_info = gr.Markdown("", visible=False)
 
                 panel.change(
                     lambda p: gr.update(visible=p == "BMP"),
@@ -559,14 +669,15 @@ def build_train_tab() -> None:
                     outputs=bmp_train_extras,
                 )
 
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Actions</p>', elem_classes="ff-th")
                 train_btn = gr.Button("🚀  Train Models", variant="primary", size="lg")
-                train_status = gr.Markdown("", elem_classes="ff-status")
                 model_download = gr.DownloadButton("⬇  Download Models (zip)", visible=False, variant="secondary")
                 metrics_download = gr.DownloadButton("⬇  Download CV Metrics CSV", visible=False, variant="secondary")
+                train_status = gr.Markdown("", elem_classes="ff-status")
 
-            with gr.Column():
-                gr.HTML('<p class="ff-section-title">Load Custom Models</p>')
-                gr.Markdown("Upload individual `.joblib` files to use immediately in the Predict tab.")
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Load Existing Models</p>', elem_classes="ff-th")
                 model_upload = gr.File(
                     label="Upload .joblib model file(s)",
                     file_types=[".joblib"],
@@ -575,22 +686,34 @@ def build_train_tab() -> None:
                 load_btn = gr.Button("📂  Load Models", variant="secondary")
                 load_status = gr.Markdown("", elem_classes="ff-status")
 
+            # ── Right main area ────────────────────────────────────────
+            with gr.Column(scale=3):
+                gr.Markdown(
+                    "Upload a wide-format CSV (one row per draw). "
+                    "Prior/post columns (`sodium_prior`, `sodium_post`, …) are required for retrospective models."
+                )
+                template_preview = gr.DataFrame(
+                    label="Template Preview (first 10 rows)",
+                    interactive=False, wrap=False, visible=False,
+                )
+                template_info = gr.Markdown("", visible=False)
+                fluids_preview = gr.DataFrame(
+                    label="Fluids Preview (first 10 rows)",
+                    interactive=False, wrap=False, visible=False,
+                )
+                fluids_info = gr.Markdown("", visible=False)
+
         template_file.change(_preview_csv, inputs=template_file, outputs=[template_preview, template_info])
         fluids_file.change(_preview_csv, inputs=fluids_file, outputs=[fluids_preview, fluids_info])
 
         def _train(p, tmpl, fluids, progress=gr.Progress()):
-            msg, zip_path, metrics_path = _run_training(p, tmpl, fluids, progress)
-            return (
-                msg,
-                gr.update(value=zip_path, visible=bool(zip_path)),
-                gr.update(value=metrics_path, visible=bool(metrics_path)),
-            )
+            yield from _run_training(p, tmpl, fluids, progress)
 
         _train_outputs = [train_status, model_download, metrics_download]
 
         train_btn.click(
             lambda: (
-                "⏳ Training models — this may take several minutes…",
+                "⏳ Starting training…",
                 gr.update(visible=False),
                 gr.update(visible=False),
             ),
@@ -626,7 +749,7 @@ def build_review_tab() -> None:
     with gr.Tab("🏷️  Review"):
         with gr.Row():
             with gr.Column(scale=1):
-                gr.HTML('<p class="ff-section-title">Load Predictions</p>')
+                gr.HTML('<p class="ff-section-title">Load Predictions</p>', elem_classes="ff-th")
                 review_file = gr.File(label="Upload predictions CSV", file_types=[".csv"])
                 review_preview = gr.DataFrame(
                     label="Preview (first 10 rows)",
@@ -645,7 +768,7 @@ def build_review_tab() -> None:
                 )
 
             with gr.Column(scale=2):
-                gr.HTML('<p class="ff-section-title">Label Each Row</p>')
+                gr.HTML('<p class="ff-section-title">Label Each Row</p>', elem_classes="ff-th")
                 state = gr.State({"df": None, "labels": [], "timestamps": [], "reviewers": [], "idx": 0})
                 row_counter = gr.Markdown("", elem_classes="ff-counter")
                 current_row = gr.HTML("<p style='color:#94a3b8;font-size:0.875rem;padding:8px 0'>Load a file to begin reviewing.</p>")
@@ -655,9 +778,9 @@ def build_review_tab() -> None:
                     next_btn = gr.Button("Next →", elem_classes="btn-nav", variant="secondary")
 
                 with gr.Row():
-                    real_btn   = gr.Button("✓  Real",         elem_classes="btn-real",   variant="secondary")
-                    equiv_btn  = gr.Button("~  Equivocal",    elem_classes="btn-equiv",  variant="secondary")
-                    contam_btn = gr.Button("✗  Contaminated", elem_classes="btn-contam", variant="secondary")
+                    real_btn   = gr.Button("Real",         elem_classes="btn-real",   variant="secondary")
+                    equiv_btn  = gr.Button("Equivocal",    elem_classes="btn-equiv",  variant="secondary")
+                    contam_btn = gr.Button("Contaminated", elem_classes="btn-contam", variant="secondary")
 
         # -- Load file --
         def _load_file(file_path, st):
@@ -742,6 +865,120 @@ def build_review_tab() -> None:
             )
 
 # ---------------------------------------------------------------------------
+# Tab 4 – Self Test
+# ---------------------------------------------------------------------------
+
+def build_self_test_tab() -> None:
+    from .self_test import build_answer_html, format_score, generate_case, init_db, log_case
+    import uuid
+
+    init_db()
+
+    _PLACEHOLDER = (
+        "<p style='color:#94a3b8;font-size:0.875rem;padding:8px 0'>"
+        "Click <strong>New Case</strong> to begin.</p>"
+    )
+
+    with gr.Tab("🎯  Self Test"):
+        with gr.Row():
+            # ── Left column: controls + score ─────────────────────────
+            with gr.Column(scale=1, min_width=200):
+                gr.HTML('<p class="ff-section-title">Settings</p>', elem_classes="ff-th")
+                panel_radio = gr.Radio(
+                    ["CBC", "BMP"], value="CBC", label="Panel",
+                    interactive=True, elem_classes="ff-top-radio",
+                )
+                new_case_btn = gr.Button("🎲  New Case", variant="primary", size="lg")
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Score</p>', elem_classes="ff-th")
+                score_md = gr.Markdown("No cases attempted yet.")
+
+            # ── Right column: case display + buttons ──────────────────
+            with gr.Column(scale=2):
+                gr.HTML('<p class="ff-section-title">Current Case</p>', elem_classes="ff-th")
+
+                state = gr.State({
+                    "case": None,      # dict from generate_case()
+                    "revealed": False,
+                    "correct": 0,
+                    "total": 0,
+                    "session_id": None,  # UUID assigned on first New Case
+                })
+
+                case_html   = gr.HTML(_PLACEHOLDER, elem_classes="ff-case-display")
+                answer_area = gr.HTML("", elem_classes="ff-case-display")
+
+                with gr.Row(elem_classes="ff-btn-row"):
+                    real_btn   = gr.Button("Real",         elem_classes="btn-real",   variant="secondary", scale=1, min_width=80)
+                    contam_btn = gr.Button("Contaminated", elem_classes="btn-contam", variant="secondary", scale=1, min_width=80)
+
+                name_input = gr.Textbox(
+                    placeholder="Your name (optional)",
+                    label="Name",
+                    max_lines=1,
+                )
+
+        # ── Callbacks ────────────────────────────────────────────────
+
+        def _new_case(panel, st):
+            session_id = st["session_id"] or str(uuid.uuid4())
+            case = generate_case(panel)
+            if case["error"]:
+                return (
+                    st,
+                    f"<p style='color:#b91c1c'>{case['error']}</p>",
+                    "",
+                    format_score(st["correct"], st["total"]),
+                )
+            new_st = {**st, "case": case, "revealed": False, "session_id": session_id}
+            row_html = _build_review_html(case["row_dict"])
+            return (
+                new_st,
+                row_html,
+                "",
+                format_score(st["correct"], st["total"]),
+            )
+
+        _case_outputs = [state, case_html, answer_area, score_md]
+
+        new_case_btn.click(_new_case, inputs=[panel_radio, state], outputs=_case_outputs)
+
+        def _guess(guess: str, st: dict, name: str):
+            if st["case"] is None:
+                return st, "", gr.update()
+
+            case     = st["case"]
+            revealed = st["revealed"]
+
+            correct = st["correct"]
+            total   = st["total"]
+
+            if not revealed:
+                total += 1
+                if (guess == "Contaminated") == case["contaminated"]:
+                    correct += 1
+                log_case(case, guess, name or "", st.get("session_id", ""))
+
+            new_st = {**st, "revealed": True, "correct": correct, "total": total}
+
+            answer_html = build_answer_html(case, guess)
+            score_text  = format_score(correct, total)
+            return new_st, answer_html, score_text
+
+        _guess_outputs = [state, answer_area, score_md]
+
+        for btn, lbl in [
+            (real_btn,   "Real"),
+            (contam_btn, "Contaminated"),
+        ]:
+            btn.click(
+                lambda st, name, lv=lbl: _guess(lv, st, name),
+                inputs=[state, name_input],
+                outputs=_guess_outputs,
+            )
+
+
+# ---------------------------------------------------------------------------
 # Theme & CSS
 # ---------------------------------------------------------------------------
 
@@ -813,7 +1050,13 @@ _CSS = """
     letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
     color: #64748b !important;
-    margin: 0 0 12px 0 !important;
+    margin: 0 !important;
+}
+/* ── Section title HTML blocks: remove gap before next component ── */
+.ff-th {
+    margin-bottom: calc(-1 * var(--layout-gap, 8px)) !important;
+    padding-bottom: 0 !important;
+    line-height: 1 !important;
 }
 .ff-divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
 
@@ -911,6 +1154,20 @@ _CSS = """
 .ff-grid-row { padding-right: 16px !important; }
 
 
+/* ── Self-test case display: strip block chrome ────────────── */
+.ff-case-display,
+.ff-case-display > .block,
+.ff-case-display .block {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+/* ── Self-test button row: don't wrap ───────────────────────── */
+.ff-btn-row { flex-wrap: nowrap !important; }
+.ff-btn-row button { min-width: 0 !important; }
+
 /* ── Instructions ──────────────────────────────────────────── */
 .ff-instructions { padding: 8px 0; }
 .ff-instr-grid {
@@ -968,6 +1225,7 @@ def build_ui(on_load=None) -> gr.Blocks:
         build_predict_tab()
         build_train_tab()
         build_review_tab()
+        build_self_test_tab()
         if on_load is not None:
             demo.load(on_load)
     return demo
