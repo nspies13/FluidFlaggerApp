@@ -7,7 +7,7 @@
 #     -e HF_TOKEN=hf_... \
 #     -e HF_MODEL_REPO=yourname/fluidflagger-models \
 #     fluidflagger-train \
-#     python -m scripts.train_and_upload \
+#     python -m src.train \
 #       --panel bmp \
 #       --template /data/bmp_template.csv \
 #       --output /output
@@ -21,7 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
 COPY data/ ./data/
-COPY scripts/ ./scripts/
 
 ENV PYTHONUNBUFFERED=1
 

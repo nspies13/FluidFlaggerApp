@@ -9,10 +9,18 @@ Also supports loading custom models from uploaded .joblib files.
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 from typing import Optional
 
 import joblib
+
+
+def _load_joblib(path):
+    """Load a joblib file, suppressing sklearn version-mismatch warnings."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+        return joblib.load(path)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -61,7 +69,7 @@ def _download_from_hub(key: str) -> Optional[dict]:
             filename=filename,
             repo_type="model",
         )
-        return joblib.load(local_path)
+        return _load_joblib(local_path)
     except Exception:
         return None
 
@@ -80,7 +88,7 @@ def get_model(key: str) -> Optional[dict]:
 
 def load_from_file(path: str | Path) -> dict:
     """Load a model dict directly from a local .joblib file (e.g. user upload)."""
-    return joblib.load(path)
+    return _load_joblib(path)
 
 
 def cache_model(key: str, model_dict: dict) -> None:
@@ -142,7 +150,7 @@ def load_models_from_dir(directory: str | Path) -> dict[str, dict]:
     for path in sorted(directory.glob("*.joblib")):
         key = path.stem
         try:
-            model = joblib.load(path)
+            model = _load_joblib(path)
             _cache[key] = model
             loaded[key] = model
         except Exception as e:
