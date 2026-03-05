@@ -54,7 +54,7 @@ def filename_for_key(key: str) -> str:
 def _download_from_hub(key: str) -> Optional[dict]:
     """Download a model from HF Hub and return the loaded dict, or None if unavailable."""
     try:
-        from huggingface_hub import hf_hub_download, HfHubHTTPError
+        from huggingface_hub import hf_hub_download
         filename = filename_for_key(key)
         local_path = hf_hub_download(
             repo_id=HF_REPO_ID,
@@ -94,6 +94,17 @@ def clear_cache() -> None:
 
 def cached_keys() -> list[str]:
     return list(_cache.keys())
+
+
+def model_key(model_dict: dict) -> str:
+    """Canonical filename stem for a model, e.g. 'bmp_NS_Realtime'."""
+    panel = model_dict["panel"]
+    fluid = model_dict["fluid"]
+    typ = model_dict["type"]
+    task = model_dict["task"]
+    if task == "mix_ratio":
+        return f"{panel}_{fluid}_mix_ratio"
+    return f"{panel}_{fluid}_{typ}"
 
 # ---------------------------------------------------------------------------
 # Availability helpers
