@@ -422,13 +422,14 @@ class BMPFeatureTransformer(BaseEstimator, TransformerMixin):
             prior_pcs = self.prior_pca_.transform(prior_deltas)
             post_pcs = self.post_pca_.transform(post_deltas)
             all_pcs = self.all_pca_.transform(all_deltas)
-            return np.hstack([current, prior_deltas, post_deltas,
-                               prior_pcs, post_pcs, all_pcs])
+            arr = np.hstack([current, prior_deltas, post_deltas,
+                              prior_pcs, post_pcs, all_pcs])
         else:
             all_predictors = np.hstack([current, prior_deltas])
             all_pcs = self.all_pca_.transform(all_predictors)
             prior_pcs = self.prior_pca_.transform(prior_deltas)
-            return np.hstack([current, prior_deltas, all_pcs, prior_pcs])
+            arr = np.hstack([current, prior_deltas, all_pcs, prior_pcs])
+        return pd.DataFrame(arr, columns=self.get_feature_names_out())
 
     def get_feature_names_out(self, input_features=None):
         if self.mode == "retrospective":
@@ -510,12 +511,13 @@ class CBCFeatureTransformer(BaseEstimator, TransformerMixin):
             prior_pcs = self.prior_pca_.transform(prior_deltas)
             post_pcs = self.post_pca_.transform(post_deltas)
             all_pcs = self.all_pca_.transform(all_deltas)
-            return np.hstack([current, prior_deltas, post_deltas,
-                               prior_pcs, post_pcs, all_pcs])
+            arr = np.hstack([current, prior_deltas, post_deltas,
+                              prior_pcs, post_pcs, all_pcs])
         else:
             all_predictors = np.hstack([current, prior_deltas])
             all_pcs = self.all_pca_.transform(all_predictors)
-            return np.hstack([current, prior_deltas, all_pcs])
+            arr = np.hstack([current, prior_deltas, all_pcs])
+        return pd.DataFrame(arr, columns=self.get_feature_names_out())
 
     def get_feature_names_out(self, input_features=None):
         if self.mode == "retrospective":

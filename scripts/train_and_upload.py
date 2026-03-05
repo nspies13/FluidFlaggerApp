@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--output", default="models/", help="Output directory for .joblib files")
     parser.add_argument("--upload", action="store_true", help="Upload models to HF Hub after training")
     parser.add_argument("--repo", default=None, help="HF Hub model repo ID (overrides HF_MODEL_REPO env var)")
+    parser.add_argument("--n-trials", type=int, default=30, help="Bayesian HPO trials per model (0 = skip HPO)")
     args = parser.parse_args()
 
     template_df = pd.read_csv(args.template)
@@ -32,9 +33,9 @@ def main():
 
     if args.panel == "bmp":
         fluids_df = pd.read_csv(args.fluids, sep=None, engine="python") if args.fluids else None
-        models = train_bmp_models(template_df, fluids_df)
+        models = train_bmp_models(template_df, fluids_df, n_trials=args.n_trials)
     else:
-        models = train_cbc_models(template_df)
+        models = train_cbc_models(template_df, n_trials=args.n_trials)
 
     paths = save_models(models, args.output)
     print(f"Saved {len(paths)} model files to {args.output}")
