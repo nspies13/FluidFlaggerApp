@@ -227,6 +227,12 @@ def build_predict_tab() -> None:
         # ── Upload section (default) ──────────────────────────────────
         with gr.Group(visible=True) as upload_section:
             file_upload = gr.File(label="Upload CSV", file_types=[".csv"])
+            data_preview = gr.DataFrame(
+                label="Data Preview (first 10 rows)",
+                interactive=False, wrap=False, visible=False,
+                elem_classes="ff-preview-table",
+            )
+            preview_info = gr.Markdown("", visible=False, elem_classes="ff-preview-info")
 
         # ── Instructions (default, hidden once results appear) ────────
         instructions = gr.HTML(_INSTRUCTIONS_HTML, visible=True)
@@ -257,15 +263,35 @@ def build_predict_tab() -> None:
         results_table = gr.DataFrame(label="Results", interactive=False, wrap=True, visible=False)
         download_btn = gr.DownloadButton("⬇  Download CSV", visible=False, variant="secondary")
 
+        # ── Upload preview callback ───────────────────────────────────
+        def _preview_upload(file_path):
+            if not file_path:
+                return gr.update(visible=False), gr.update(value="", visible=False)
+            try:
+                df = pd.read_csv(file_path)
+            except Exception as e:
+                return gr.update(visible=False), gr.update(value=f"⚠️ Could not read file: {e}", visible=True)
+            n_rows, n_cols = df.shape
+            info = f"**{n_rows:,} rows × {n_cols} columns**"
+            return (
+                gr.update(value=df.head(10), visible=True),
+                gr.update(value=info, visible=True),
+            )
+
+        file_upload.change(
+            _preview_upload, inputs=file_upload,
+            outputs=[data_preview, preview_info],
+        )
+
         # ── Toggle callbacks ──────────────────────────────────────────
         def _toggle_mode(mode, p):
             is_upload = mode == "Upload CSV"
             is_bmp = p == "BMP"
             return (
-                gr.update(visible=is_upload),          # upload_section
-                gr.update(visible=not is_upload and is_bmp),   # bmp_manual_section
-                gr.update(visible=not is_upload and not is_bmp), # cbc_manual_section
-                gr.update(visible=is_upload and is_bmp),  # upload_fluid_section
+                gr.update(visible=is_upload),                      # upload_section
+                gr.update(visible=not is_upload and is_bmp),       # bmp_manual_section
+                gr.update(visible=not is_upload and not is_bmp),   # cbc_manual_section
+                gr.update(visible=is_upload and is_bmp),           # upload_fluid_section
             )
 
         for trigger, inputs in [
