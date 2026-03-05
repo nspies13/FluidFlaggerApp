@@ -1,0 +1,28 @@
+# Training job — runs locally or in CI to produce .joblib model files.
+# Usage:
+#   docker build -f Dockerfile.train -t fluidflagger-train .
+#   docker run --rm \
+#     -v /path/to/training_data:/data \
+#     -v /path/to/output:/output \
+#     -e HF_TOKEN=hf_... \
+#     -e HF_MODEL_REPO=yourname/fluidflagger-models \
+#     fluidflagger-train \
+#     python -m scripts.train_and_upload \
+#       --panel bmp \
+#       --template /data/bmp_template.csv \
+#       --output /output
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY data/ ./data/
+COPY scripts/ ./scripts/
+
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["python"]
