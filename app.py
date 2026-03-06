@@ -42,24 +42,35 @@ _ALL_MODEL_KEYS = (
 
 def _prefetch_models():
     """Download all models from HF Hub into the in-process cache."""
-    ok, failed = 0, 0
-    for key in _ALL_MODEL_KEYS:
-        m = get_model(key)
-        if m is not None:
-            ok += 1
-        else:
-            failed += 1
-    print(f"Model prefetch complete: {ok} loaded, {failed} unavailable.")
+    try:
+        ok, failed = 0, 0
+        for key in _ALL_MODEL_KEYS:
+            try:
+                m = get_model(key)
+                if m is not None:
+                    ok += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                print(f"Warning: Failed to load model {key}: {e}")
+                failed += 1
+        print(f"Model prefetch complete: {ok} loaded, {failed} unavailable.")
+    except Exception as e:
+        print(f"Warning: Model prefetch failed: {e}")
 
 
 # Fall back to local models when running outside HF Spaces (dev mode)
 _local_models = Path("models")
 if _local_models.is_dir():
-    _n = len(load_models_from_dir(_local_models))
-    print(f"Loaded {_n} local model(s) into cache.")
+    try:
+        _n = len(load_models_from_dir(_local_models))
+        print(f"Loaded {_n} local model(s) into cache.")
+    except Exception as e:
+        print(f"Warning: Failed to load local models: {e}")
 else:
-    # On HF Spaces there are no local files — prefetch from Hub at startup
-    _prefetch_models()
+    # On HF Spaces, skip startup prefetch — models will load on first use
+    # This allows UI to render immediately
+    print("No local models found. Models will load on first use.")
 
 # Build the Gradio Blocks UI; register _prefetch_models as the load handler
 # inside the Blocks context so it fires on every new browser session.
