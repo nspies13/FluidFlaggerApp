@@ -9,6 +9,7 @@ build/
 models/
 data/training_templates/
 .cache/
+.venv/
 .pytest_cache/
 .ruff_cache/
 *.tmp
