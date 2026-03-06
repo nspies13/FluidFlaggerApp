@@ -23,16 +23,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git remote set-url origin https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/NickSpies/fluidflagger
 
-          # Copy source files
-          rm -rf src data app.py requirements.txt .gitignore
+          # Create orphan branch and wipe entire working tree to avoid
+          # carrying over binary files (e.g. .venv) from HF Spaces history
+          git checkout --orphan new-main
+          git rm -rf --cached .
+          find . -mindepth 1 -not -path './.git' -not -path './.git/*' -delete
+
+          # Copy only the files we want
           cp -r ../src .
           cp -r ../data .
           cp ../app.py .
           cp ../requirements.txt .
           cp ../.gitignore .
 
-          # Create a fresh orphan commit to avoid binary files in history
-          git checkout --orphan new-main
           git add -A
           git commit -m "Sync from GitHub ($(git rev-parse --short ${{ github.sha }}))"
           git push origin new-main:main --force
