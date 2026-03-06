@@ -1,0 +1,44 @@
+name: Sync to HF Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone HF Spaces repo
+        run: |
+          git clone https://huggingface.co/spaces/nickspies/FluidFlagger hf-space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Sync files to HF Spaces
+        run: |
+          cd hf-space
+
+          # Copy source files
+          rm -rf src data app.py requirements.txt .gitignore
+          cp -r ../src .
+          cp -r ../data .
+          cp ../app.py .
+          cp ../requirements.txt .
+          cp ../.gitignore .
+
+          # Configure git for HF
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # Commit and push if there are changes
+          if git diff --quiet; then
+            echo "No changes to sync"
+          else
+            git add -A
+            git commit -m "Sync from GitHub ($(git rev-parse --short ${{ github.sha }}))"
+            git push origin main
+          fi
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
