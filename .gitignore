@@ -13,3 +13,4 @@ data/training_templates/
 .ruff_cache/
 *.tmp
 *.zip
+data/self_test_log.db*
