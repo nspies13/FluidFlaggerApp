@@ -873,23 +873,18 @@ def build_review_tab() -> None:
 # Tab 4 – Self Test
 # ---------------------------------------------------------------------------
 
-def build_self_test_tab() -> None:
+def build_self_test_tab(demo=None) -> None:
     from .self_test import build_answer_html, format_score, generate_case, init_db, log_case
     import uuid
 
     init_db()
-
-    _PLACEHOLDER = (
-        "<p style='color:#94a3b8;font-size:0.875rem;padding:8px 0'>"
-        "Click <strong>New Case</strong> to begin.</p>"
-    )
 
     with gr.Tab("🎯  Self Test"):
         with gr.Row():
             # ── Left column: controls + score ─────────────────────────
             with gr.Column(scale=1, min_width=200):
                 panel_radio = gr.Radio(
-                    ["CBC", "BMP"], value="CBC", label="Panel",
+                    ["CBC", "BMP"], value="BMP", label="Panel",
                     interactive=True, elem_classes="ff-top-radio",
                 )
                 new_case_btn = gr.Button("🎲  New Case", variant="primary", size="lg")
@@ -906,22 +901,27 @@ def build_self_test_tab() -> None:
             with gr.Column(scale=2):
                 gr.HTML('<p class="ff-section-title">Current Case</p>', elem_classes="ff-th")
 
+                _initial_case = generate_case("BMP")
                 state = gr.State({
-                    "case": None,
+                    "case": _initial_case,
                     "revealed": False,
                     "correct": 0,
                     "total": 0,
                     "session_id": None,
                 })
 
-                case_html   = gr.HTML(_PLACEHOLDER, elem_classes="ff-case-display")
-                answer_area = gr.HTML("", elem_classes="ff-case-display")
-
-                next_case_btn = gr.Button("Next Case →", variant="secondary", visible=False, size="lg")
+                case_html = gr.HTML(
+                    _build_review_html(_initial_case["row_dict"]),
+                    elem_classes="ff-case-display",
+                )
 
                 with gr.Row(elem_classes="ff-btn-row"):
                     real_btn   = gr.Button("Real",         elem_classes="btn-real   ff-guess-btn", variant="secondary", scale=1)
                     contam_btn = gr.Button("Contaminated", elem_classes="btn-contam ff-guess-btn", variant="secondary", scale=1)
+
+                next_case_btn = gr.Button("Next Case →", variant="secondary", visible=False, size="lg")
+
+                answer_area = gr.HTML("", elem_classes="ff-case-display")
 
         # ── Callbacks ────────────────────────────────────────────────
 
@@ -984,6 +984,13 @@ def build_self_test_tab() -> None:
                 outputs=_guess_outputs,
             )
 
+        if demo is not None:
+            demo.load(
+                lambda st: _new_case("BMP", st),
+                inputs=[state],
+                outputs=_case_outputs,
+            )
+
 
 # ---------------------------------------------------------------------------
 # Theme & CSS
@@ -1030,7 +1037,7 @@ _CSS = """
 }
 
 /* ── Page chrome ───────────────────────────────────────────── */
-.gradio-container { max-width: 1400px !important; margin: 0 auto !important; }
+.gradio-container { width: 80% !important; max-width: 1400px !important; margin: 0 auto !important; }
 
 /* ── App header ────────────────────────────────────────────── */
 .ff-header {
@@ -1215,6 +1222,7 @@ _CSS = """
     min-width: 0 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    font-size: 0.8125rem !important;
 }
 
 /* ── Review: label buttons — larger + equal width ──────────── */
@@ -1311,12 +1319,12 @@ _CSS = """
 }
 
 /* ── Review table ──────────────────────────────────────────── */
-.ff-rv-wrap { overflow-x: auto; margin: 4px 0 12px 0; border: none; }
-.ff-rv-table { border-collapse: collapse; font-size: 0.875rem; font-family: inherit; width: 100%; border: none; }
+.ff-rv-wrap { overflow-x: auto; margin: 4px 0 12px 0; border: none; display: flex; justify-content: center; }
+.ff-rv-table { border-collapse: collapse; font-size: 0.875rem; font-family: inherit; width: auto; border: none; }
 .ff-rv-th-lbl {
     text-align: right; padding: 8px 6px; font-weight: 600; font-style: italic;
     font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em;
-    white-space: nowrap; min-width: 60px; border: none;
+    white-space: nowrap; min-width: 45px; border: none;
 }
 .ff-rv-th-col {
     text-align: center; padding: 8px 16px; background: #f8fafc; font-weight: 600;
@@ -1381,7 +1389,7 @@ def build_ui(on_load=None) -> gr.Blocks:
         build_predict_tab()
         build_train_tab()
         build_review_tab()
-        build_self_test_tab()
+        build_self_test_tab(demo)
         if on_load is not None:
             demo.load(on_load)
     return demo
