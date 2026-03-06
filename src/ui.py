@@ -177,7 +177,7 @@ _INSTRUCTIONS_HTML = """
     <div class="ff-instr-card">
       <div class="ff-instr-icon">📁</div>
       <h4>Upload a CSV</h4>
-      <p>Upload a <strong>wide-format</strong> CSV — one row per blood draw, analyte values as columns. Include <code>_prior</code> and <code>_post</code> columns to enable retrospective models.</p>
+      <p>Upload a <strong>wide-format</strong> CSV (one row per draw, analyte values as columns) or a <strong>long-format</strong> CSV (one row per analyte, with a <code>TASK_ASSAY</code> column). Format is detected automatically. Include <code>_prior</code> and <code>_post</code> columns to enable retrospective models.</p>
     </div>
     <div class="ff-instr-card">
       <div class="ff-instr-icon">✏️</div>
@@ -350,29 +350,24 @@ def build_predict_tab() -> None:
         with gr.Row():
             # ── Left sidebar ───────────────────────────────────────────
             with gr.Column(scale=1, min_width=260):
-                gr.HTML('<p class="ff-section-title">Panel</p>', elem_classes="ff-th")
                 panel = gr.Radio(
-                    ["BMP", "CBC"], value="BMP",
-                    interactive=True, elem_classes="ff-top-radio", show_label=False,
+                    ["BMP", "CBC"], value="BMP", label="Panel",
+                    interactive=True, elem_classes="ff-top-radio",
                 )
 
-                gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title">Prediction Input</p>', elem_classes="ff-th")
                 input_mode = gr.Radio(
                     ["Upload File", "Manual Entry"],
-                    value="Upload File",
-                    interactive=True, elem_classes="ff-top-radio", show_label=False,
+                    value="Upload File", label="Prediction Input",
+                    interactive=True, elem_classes="ff-top-radio",
                 )
 
                 with gr.Group(visible=True) as upload_section:
-                    file_upload_wide = gr.File(
-                        label="Upload Wide CSV/TSV", file_types=[".csv", ".tsv"],
+                    file_upload = gr.File(
+                        label="Upload Wide- or Long-Form CSV",
+                        file_types=[".csv", ".tsv"],
+                        elem_classes="ff-compact-file",
                     )
-                    format_badge_wide = gr.HTML("")
-                    file_upload_long = gr.File(
-                        label="Upload Long CSV/TSV", file_types=[".csv", ".tsv"],
-                    )
-                    format_badge_long = gr.HTML("")
+                    format_badge = gr.HTML("")
 
                 with gr.Group(visible=True) as upload_fluid_section:
                     fluid_checkboxes_upload = gr.CheckboxGroup(
@@ -445,25 +440,15 @@ def build_predict_tab() -> None:
             except Exception:
                 return ""
 
-        def _on_wide_upload(f):
+        def _on_upload(f):
             badge = _format_badge(f)
             preview, info = _preview_csv(f)
             return badge, preview, info
 
-        def _on_long_upload(f):
-            badge = _format_badge(f)
-            preview, info = _preview_csv(f)
-            return badge, preview, info
-
-        file_upload_wide.change(
-            _on_wide_upload,
-            inputs=file_upload_wide,
-            outputs=[format_badge_wide, data_preview, preview_info],
-        )
-        file_upload_long.change(
-            _on_long_upload,
-            inputs=file_upload_long,
-            outputs=[format_badge_long, data_preview, preview_info],
+        file_upload.change(
+            _on_upload,
+            inputs=file_upload,
+            outputs=[format_badge, data_preview, preview_info],
         )
 
         # ── Custom model auto-load ─────────────────────────────────────
@@ -510,14 +495,14 @@ def build_predict_tab() -> None:
         n_bmp3 = len(BMP_MANUAL_FIELDS) * 3
         n_cbc3 = len(CBC_MANUAL_FIELDS) * 3
 
-        def _predict(p, mode, wide_file, long_file, fluids_manual, fluids_upload, *vals):
+        def _predict(p, mode, file_path, fluids_manual, fluids_upload, *vals):
             fluids = fluids_manual if mode == "Manual Entry" else fluids_upload
             bmp_vals = vals[:n_bmp3]
             cbc_vals = vals[n_bmp3:n_bmp3 + n_cbc3]
             if p == "BMP":
-                df, csv_path, msg = _run_bmp_prediction(mode, wide_file, long_file, fluids, *bmp_vals)
+                df, csv_path, msg = _run_bmp_prediction(mode, file_path, fluids, *bmp_vals)
             else:
-                df, csv_path, msg = _run_cbc_prediction(mode, wide_file, long_file, *cbc_vals)
+                df, csv_path, msg = _run_cbc_prediction(mode, file_path, *cbc_vals)
 
             if df is None:
                 return msg, gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
@@ -529,7 +514,7 @@ def build_predict_tab() -> None:
             )
 
         _predict_inputs = [
-            panel, input_mode, file_upload_wide, file_upload_long,
+            panel, input_mode, file_upload,
             fluid_checkboxes, fluid_checkboxes_upload,
         ] + all_manual
         _predict_outputs = [status_msg, results_table, download_btn, instructions]
@@ -649,9 +634,8 @@ def build_train_tab() -> None:
         with gr.Row():
             # ── Left sidebar ───────────────────────────────────────────
             with gr.Column(scale=1, min_width=260):
-                gr.HTML('<p class="ff-section-title">Panel</p>', elem_classes="ff-th")
-                panel = gr.Radio(["BMP", "CBC"], value="BMP", interactive=True,
-                                 elem_classes="ff-top-radio", show_label=False)
+                panel = gr.Radio(["BMP", "CBC"], value="BMP", label="Panel",
+                                 interactive=True, elem_classes="ff-top-radio")
 
                 gr.HTML('<hr class="ff-divider">')
                 gr.HTML('<p class="ff-section-title">Training Data</p>', elem_classes="ff-th")
@@ -883,7 +867,6 @@ def build_self_test_tab() -> None:
         with gr.Row():
             # ── Left column: controls + score ─────────────────────────
             with gr.Column(scale=1, min_width=200):
-                gr.HTML('<p class="ff-section-title">Settings</p>', elem_classes="ff-th")
                 panel_radio = gr.Radio(
                     ["CBC", "BMP"], value="CBC", label="Panel",
                     interactive=True, elem_classes="ff-top-radio",
@@ -1167,6 +1150,21 @@ _CSS = """
 /* ── Self-test button row: don't wrap ───────────────────────── */
 .ff-btn-row { flex-wrap: nowrap !important; }
 .ff-btn-row button { min-width: 0 !important; }
+
+/* ── Compact file upload ───────────────────────────────────── */
+.ff-compact-file .upload-container,
+.ff-compact-file [data-testid="file-upload"],
+.ff-compact-file .file-preview {
+    min-height: 60px !important;
+    max-height: 60px !important;
+    padding: 8px 12px !important;
+}
+.ff-compact-file .upload-container .icon-wrap { display: none !important; }
+.ff-compact-file .upload-container p,
+.ff-compact-file .upload-container span {
+    font-size: 0.8rem !important;
+    line-height: 1.3 !important;
+}
 
 /* ── Instructions ──────────────────────────────────────────── */
 .ff-instructions { padding: 8px 0; }
