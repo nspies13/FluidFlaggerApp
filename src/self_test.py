@@ -133,41 +133,79 @@ def build_answer_html(case: dict, guess: Optional[str]) -> str:
     fluid        = case.get("fluid")
     mix_ratio    = case.get("mix_ratio")
 
-    if contaminated:
-        if fluid:
-            truth_str = f"CONTAMINATED — {fluid} at {mix_ratio:.0%} mix ratio"
-        else:
-            truth_str = f"CONTAMINATED — {mix_ratio:.0%} dilution"
-        truth_color  = "#b91c1c"
-        truth_bg     = "#fee2e2"
-        truth_border = "#fca5a5"
-    else:
-        truth_str    = "CLEAN — no contamination"
-        truth_color  = "#15803d"
-        truth_bg     = "#dcfce7"
-        truth_border = "#86efac"
-
-    correctness_html = ""
+    # ── Verdict ──────────────────────────────────────────────────────────────
     if guess is not None:
-        if (guess == "Contaminated") == contaminated:
-            correctness_html = (
-                '<div style="margin-bottom:10px;padding:8px 14px;background:#dcfce7;'
-                'border:1px solid #86efac;border-radius:8px;color:#15803d;font-weight:600">'
-                "✓ Correct!</div>"
-            )
+        correct = (guess == "Contaminated") == contaminated
+        if correct:
+            verdict_icon   = "✓"
+            verdict_text   = "Correct"
+            verdict_color  = "#15803d"
+            verdict_bg     = "#dcfce7"
+            verdict_border = "#86efac"
         else:
-            correctness_html = (
-                '<div style="margin-bottom:10px;padding:8px 14px;background:#fee2e2;'
-                'border:1px solid #fca5a5;border-radius:8px;color:#b91c1c;font-weight:600">'
-                "✗ Incorrect</div>"
+            verdict_icon   = "✗"
+            verdict_text   = "Incorrect"
+            verdict_color  = "#b91c1c"
+            verdict_bg     = "#fee2e2"
+            verdict_border = "#fca5a5"
+        verdict_html = (
+            f'<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;'
+            f'background:{verdict_bg};border:1px solid {verdict_border};border-radius:12px;'
+            f'margin-bottom:10px">'
+            f'<span style="font-size:1.75rem;line-height:1;color:{verdict_color}">{verdict_icon}</span>'
+            f'<span style="font-size:1.125rem;font-weight:700;color:{verdict_color}">{verdict_text}</span>'
+            f'</div>'
+        )
+    else:
+        verdict_html = ""
+
+    # ── Ground truth card ────────────────────────────────────────────────────
+    if contaminated:
+        gt_label_color = "#9f1239"
+        gt_bg          = "#fff1f2"
+        gt_border      = "#fda4af"
+        gt_status      = "CONTAMINATED"
+        gt_status_color = "#b91c1c"
+
+        badge_bg     = "#fecdd3"
+        badge_color  = "#9f1239"
+        badges = []
+        if fluid:
+            badges.append(
+                f'<span style="background:{badge_bg};color:{badge_color};padding:3px 11px;'
+                f'border-radius:9999px;font-size:0.8125rem;font-weight:600">{fluid}</span>'
             )
+        if mix_ratio is not None:
+            badges.append(
+                f'<span style="background:{badge_bg};color:{badge_color};padding:3px 11px;'
+                f'border-radius:9999px;font-size:0.8125rem;font-weight:600">{mix_ratio:.0%} mix</span>'
+            )
+        badges_html = (
+            f'<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">{"".join(badges)}</div>'
+            if badges else ""
+        )
+    else:
+        gt_label_color  = "#166534"
+        gt_bg           = "#f0fdf4"
+        gt_border       = "#86efac"
+        gt_status       = "CLEAN"
+        gt_status_color = "#15803d"
+        badges_html     = ""
 
     truth_html = (
-        f'<div style="padding:10px 14px;background:{truth_bg};border:1px solid {truth_border};'
-        f'border-radius:8px;color:{truth_color};font-weight:600;font-size:0.9rem">'
-        f"Ground truth: {truth_str}</div>"
+        f'<div style="padding:14px 18px;background:{gt_bg};border:1px solid {gt_border};border-radius:12px">'
+        f'<div style="font-size:0.6875rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;'
+        f'color:{gt_label_color};margin-bottom:6px">Ground Truth</div>'
+        f'<div style="font-size:1.0625rem;font-weight:700;color:{gt_status_color}">{gt_status}</div>'
+        f'{badges_html}'
+        f'</div>'
     )
-    return f'<div style="margin-top:12px">{correctness_html}{truth_html}</div>'
+
+    return (
+        f'<div style="margin-top:14px;animation:ff-fade-in 0.2s ease">'
+        f'{verdict_html}{truth_html}'
+        f'</div>'
+    )
 
 
 _DB_PATH = Path(__file__).parent.parent / "data" / "self_test_log.db"
@@ -238,6 +276,20 @@ def log_case(case: dict, guess: str, name: str, session_id: str) -> None:
 
 def format_score(correct: int, total: int) -> str:
     if total == 0:
-        return "No cases attempted yet."
+        return "<p style='color:#94a3b8;font-size:0.875rem;margin:0;padding:4px 0'>No cases attempted yet.</p>"
     pct = correct / total * 100
-    return f"**{correct} / {total}** correct ({pct:.0f}%)"
+    if pct >= 70:
+        color, bg, border = "#15803d", "#f0fdf4", "#bbf7d0"
+    elif pct >= 50:
+        color, bg, border = "#92400e", "#fffbeb", "#fde68a"
+    else:
+        color, bg, border = "#b91c1c", "#fef2f2", "#fca5a5"
+    bar_w = min(100.0, pct)
+    return (
+        f'<div style="padding:10px 12px;background:{bg};border:1px solid {border};border-radius:10px;margin-top:4px">'
+        f'<div style="font-size:1.5rem;font-weight:700;color:{color};line-height:1;text-align:center">{correct}/{total}</div>'
+        f'<div style="font-size:0.75rem;font-weight:600;color:{color};text-align:center;margin-top:2px">{pct:.0f}% correct</div>'
+        f'<div style="background:#e2e8f0;border-radius:3px;height:4px;margin-top:8px;overflow:hidden">'
+        f'<div style="background:{color};width:{bar_w:.1f}%;height:100%;border-radius:3px"></div>'
+        f'</div></div>'
+    )

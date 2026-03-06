@@ -91,65 +91,54 @@ def _build_review_html(row_dict: dict) -> str:
     has_prior = any(v is not None for v in prior_vals)
     has_post  = any(v is not None for v in post_vals)
 
-    S_TABLE  = "border-collapse:collapse;font-size:0.875rem;font-family:inherit;width:100%;border:none"
-    S_TH     = "text-align:center;padding:8px 16px;background:#f8fafc;font-weight:600;font-style:italic;color:#475569;font-size:0.8125rem;white-space:nowrap;border:none"
-    S_LBL    = "text-align:right;padding:8px 6px 8px 6px;font-weight:600;font-style:italic;font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;min-width:60px;border:none"
-    S_TD_P   = "text-align:center;padding:8px 16px;background:#f5f3ff;color:#4b5563;white-space:nowrap;border:none"
-    S_TD_O   = "text-align:center;padding:8px 16px;background:#f0fdf4;color:#4b5563;white-space:nowrap;border:none"
-    S_TD_C   = "text-align:center;padding:0;white-space:nowrap;border:none"
     # Header row
-    th_cells = "".join(f'<th style="{S_TH}">{abbr}</th>' for abbr in abbrevs)
-    html = f'<tr><th style="{S_LBL}"></th>{th_cells}</tr>'
+    th_cells = "".join(f'<th class="ff-rv-th-col">{abbr}</th>' for abbr in abbrevs)
+    html = f'<tr><th class="ff-rv-th-lbl"></th>{th_cells}</tr>'
 
     # Prior row
     if has_prior:
-        cells = "".join(f'<td style="{S_TD_P}">{_fmt(v)}</td>' for v in prior_vals)
-        html += f'<tr><td style="{S_LBL};color:#818cf8">prior</td>{cells}</tr>'
-
-    S_ARROW_UP   = "display:block;font-size:0.6rem;line-height:1;color:#22d3ee;height:11px;text-align:center"
-    S_ARROW_DN   = "display:block;font-size:0.6rem;line-height:1;color:#f472b6;height:11px;text-align:center"
-    S_ARROW_NONE = "display:block;height:11px"
-    S_NUM        = "display:block;font-size:0.875rem;font-weight:700;line-height:1.3;text-align:center;color:#1e40af"
+        cells = "".join(f'<td class="ff-rv-td-prior">{_fmt(v)}</td>' for v in prior_vals)
+        html += f'<tr><td class="ff-rv-th-lbl ff-rv-lbl-prior">prior</td>{cells}</tr>'
 
     # Current row with arrows
     def _arrow_cell(curr, prior, post):
         if curr is None:
-            return f'<td style="{S_TD_C}"><div style="background:#f0f9ff;padding:2px 14px;text-align:center"><span style="{S_NUM}">—</span></div></td>'
+            return '<td class="ff-rv-td-curr"><div class="ff-rv-curr-inner"><span class="ff-rv-num">—</span></div></td>'
         # top arrow: prior → current
         if prior is not None and curr > prior:
-            top = f'<div style="{S_ARROW_UP}">&#9650;</div>'
+            top = '<div class="ff-rv-arrow-up">&#9650;</div>'
         elif prior is not None and curr < prior:
-            top = f'<div style="{S_ARROW_DN}">&#9660;</div>'
+            top = '<div class="ff-rv-arrow-dn">&#9660;</div>'
         else:
-            top = f'<div style="{S_ARROW_NONE}"></div>'
+            top = '<div class="ff-rv-arrow-none"></div>'
         # bottom arrow: current → post
         if post is not None and post > curr:
-            bot = f'<div style="{S_ARROW_UP}">&#9650;</div>'
+            bot = '<div class="ff-rv-arrow-up">&#9650;</div>'
         elif post is not None and post < curr:
-            bot = f'<div style="{S_ARROW_DN}">&#9660;</div>'
+            bot = '<div class="ff-rv-arrow-dn">&#9660;</div>'
         else:
-            bot = f'<div style="{S_ARROW_NONE}"></div>'
+            bot = '<div class="ff-rv-arrow-none"></div>'
         return (
-            f'<td style="{S_TD_C}">'
-            f'<div style="background:#f0f9ff;padding:2px 14px;text-align:center">'
+            '<td class="ff-rv-td-curr">'
+            '<div class="ff-rv-curr-inner">'
             f'{top}'
-            f'<div style="{S_NUM}">{_fmt(curr)}</div>'
+            f'<div class="ff-rv-num">{_fmt(curr)}</div>'
             f'{bot}'
-            f'</div></td>'
+            '</div></td>'
         )
 
     curr_cells = "".join(
         _arrow_cell(c, p, o)
         for c, p, o in zip(current_vals, prior_vals, post_vals)
     )
-    html += f'<tr><td style="{S_LBL};color:#38bdf8">current</td>{curr_cells}</tr>'
+    html += f'<tr><td class="ff-rv-th-lbl ff-rv-lbl-curr">current</td>{curr_cells}</tr>'
 
     # Post row
     if has_post:
-        cells = "".join(f'<td style="{S_TD_O}">{_fmt(v)}</td>' for v in post_vals)
-        html += f'<tr><td style="{S_LBL};color:#34d399">post</td>{cells}</tr>'
+        cells = "".join(f'<td class="ff-rv-td-post">{_fmt(v)}</td>' for v in post_vals)
+        html += f'<tr><td class="ff-rv-th-lbl ff-rv-lbl-post">post</td>{cells}</tr>'
 
-    return f'<div style="overflow-x:auto;margin:4px 0 12px 0;border:none"><table style="{S_TABLE}">{html}</table></div>'
+    return f'<div class="ff-rv-wrap"><table class="ff-rv-table">{html}</table></div>'
 
 
 
@@ -203,6 +192,31 @@ _INSTRUCTIONS_HTML = """
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+_ERR_STYLE  = "display:inline-block;padding:6px 14px;border-radius:9999px;font-size:0.875rem;font-weight:500;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5"
+_WARN_STYLE = "display:inline-block;padding:6px 14px;border-radius:9999px;font-size:0.875rem;font-weight:500;background:#fffbeb;color:#92400e;border:1px solid #fde68a"
+
+
+def _err(msg: str) -> str:
+    """Wrap a message in a red error pill for gr.Markdown status fields."""
+    return f'<span style="{_ERR_STYLE}">{msg}</span>'
+
+
+def _counter_html(idx: int, total: int, n_labeled: int) -> str:
+    """Build styled progress counter HTML for the Review tab."""
+    pct = n_labeled / total * 100 if total > 0 else 0
+    return (
+        f'<div class="ff-counter-wrap">'
+        f'<div class="ff-counter-text">'
+        f'Reviewing <strong>{idx + 1}</strong> of {total}'
+        f'&ensp;·&ensp;Labeled: <strong>{n_labeled}</strong>'
+        f'</div>'
+        f'<div class="ff-counter-track">'
+        f'<div class="ff-counter-fill" style="width:{pct:.1f}%"></div>'
+        f'</div>'
+        f'</div>'
+    )
+
+
 def _df_to_csv_bytes(df: pd.DataFrame) -> bytes:
     buf = io.BytesIO()
     df.to_csv(buf, index=False)
@@ -247,13 +261,13 @@ def _run_bmp_prediction(
     file_path: str | None,
     selected_fluids: list[str],
     *manual_values,  # 8 prior + 8 current + 8 post
-) -> tuple[pd.DataFrame | None, str | None, str]:
-    """Core BMP prediction handler. Returns (result_df, csv_path, status_msg)."""
+) -> tuple[pd.DataFrame | None, str]:
+    """Core BMP prediction handler. Returns (result_df, status_msg)."""
     from .inference import make_bmp_predictions
 
-    if mode == "Upload File":
+    if mode == "Upload":
         if not file_path:
-            return None, None, "⚠️ Please upload a CSV file."
+            return None, "⚠️ Please upload a CSV file."
         df = preprocess_bmp_data(_read_uploaded_csv(file_path))
     else:
         n = len(BMP_MANUAL_FIELDS)
@@ -271,24 +285,23 @@ def _run_bmp_prediction(
     try:
         result = make_bmp_predictions(df, selected_fluids=fluids)
     except RuntimeError as e:
-        return None, None, f"⚠️ {e}"
+        return None, f"⚠️ {e}"
     except Exception:
-        return None, None, f"Error: {traceback.format_exc()}"
+        return None, f"Error: {traceback.format_exc()}"
 
-    csv_path = _save_temp_csv(result)
-    return result, csv_path, f"✓ {len(result)} row(s) predicted."
+    return result, f"✓ {len(result)} row(s) predicted."
 
 
 def _run_cbc_prediction(
     mode: str,
     file_path: str | None,
     *manual_values,  # 3 prior + 3 current + 3 post
-) -> tuple[pd.DataFrame | None, str | None, str]:
+) -> tuple[pd.DataFrame | None, str]:
     from .inference import make_cbc_predictions
 
-    if mode == "Upload File":
+    if mode == "Upload":
         if not file_path:
-            return None, None, "⚠️ Please upload a CSV file."
+            return None, "⚠️ Please upload a CSV file."
         df = preprocess_cbc_data(_read_uploaded_csv(file_path))
     else:
         n = len(CBC_MANUAL_FIELDS)
@@ -305,12 +318,11 @@ def _run_cbc_prediction(
     try:
         result = make_cbc_predictions(df)
     except RuntimeError as e:
-        return None, None, f"⚠️ {e}"
+        return None, f"⚠️ {e}"
     except Exception:
-        return None, None, f"Error: {traceback.format_exc()}"
+        return None, f"Error: {traceback.format_exc()}"
 
-    csv_path = _save_temp_csv(result)
-    return result, csv_path, f"✓ {len(result)} row(s) predicted."
+    return result, f"✓ {len(result)} row(s) predicted."
 
 
 def _make_manual_grid(fields: list) -> tuple[list, list, list]:
@@ -356,8 +368,8 @@ def build_predict_tab() -> None:
                 )
 
                 input_mode = gr.Radio(
-                    ["Upload File", "Manual Entry"],
-                    value="Upload File", label="Prediction Input",
+                    ["Upload", "Manual"],
+                    value="Upload", label="Input",
                     interactive=True, elem_classes="ff-top-radio",
                 )
 
@@ -384,18 +396,15 @@ def build_predict_tab() -> None:
                     )
                     custom_model_status = gr.Markdown("", elem_classes="ff-status")
 
-                gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title">Actions</p>', elem_classes="ff-th")
-                run_btn = gr.Button("▶  Run Predictions", variant="primary", size="lg")
-                download_btn = gr.DownloadButton(
-                    "⬇  Download Predictions",
-                    visible=False, variant="secondary",
-                    elem_id="predict-download-btn",
-                )
-                status_msg = gr.Markdown("", elem_classes="ff-status")
-
             # ── Right main area ────────────────────────────────────────
             with gr.Column(scale=3):
+                empty_state = gr.HTML(
+                    '<div class="ff-empty-state">'
+                    '<div style="font-size:1.75rem;margin-bottom:10px">📁</div>'
+                    '<p>Upload a CSV or switch to <strong>Manual</strong> to get started</p>'
+                    '</div>',
+                    visible=True,
+                )
                 data_preview = gr.DataFrame(
                     label="Data Preview (first 10 rows)",
                     interactive=False, wrap=False, visible=False,
@@ -403,7 +412,13 @@ def build_predict_tab() -> None:
                 )
                 preview_info = gr.Markdown("", visible=False, elem_classes="ff-preview-info")
 
-                instructions = gr.HTML(_INSTRUCTIONS_HTML, visible=True)
+                run_btn = gr.Button("▶  Run Predictions", variant="primary", size="lg", visible=False)
+                download_btn = gr.DownloadButton(
+                    "⬇  Download Predictions",
+                    visible=False, variant="primary",
+                    elem_id="predict-download-btn",
+                )
+                status_msg = gr.Markdown("", elem_classes="ff-status")
 
                 with gr.Group(visible=False) as bmp_manual_section:
                     bmp_prior, bmp_current, bmp_post = _make_manual_grid(BMP_MANUAL_FIELDS)
@@ -443,12 +458,13 @@ def build_predict_tab() -> None:
         def _on_upload(f):
             badge = _format_badge(f)
             preview, info = _preview_csv(f)
-            return badge, preview, info
+            has_file = bool(f)
+            return badge, preview, info, gr.update(visible=has_file), gr.update(visible=False), gr.update(visible=not has_file)
 
         file_upload.change(
             _on_upload,
             inputs=file_upload,
-            outputs=[format_badge, data_preview, preview_info],
+            outputs=[format_badge, data_preview, preview_info, run_btn, download_btn, empty_state],
         )
 
         # ── Custom model auto-load ─────────────────────────────────────
@@ -471,23 +487,27 @@ def build_predict_tab() -> None:
         )
 
         # ── Toggle callbacks ───────────────────────────────────────────
-        def _toggle_mode(mode, p):
-            is_upload = mode == "Upload File"
+        def _toggle_mode(mode, p, f):
+            is_upload = mode == "Upload"
             is_bmp = p == "BMP"
+            show_run = not is_upload or bool(f)
+            show_empty = is_upload and not bool(f)
             return (
                 gr.update(visible=is_upload),                      # upload_section
                 gr.update(visible=is_upload and is_bmp),           # upload_fluid_section
                 gr.update(visible=not is_upload and is_bmp),       # bmp_manual_section
                 gr.update(visible=not is_upload and not is_bmp),   # cbc_manual_section
+                gr.update(visible=show_run),                       # run_btn
+                gr.update(visible=show_empty),                     # empty_state
             )
 
         for trigger, inputs in [
-            (input_mode, [input_mode, panel]),
-            (panel,      [input_mode, panel]),
+            (input_mode, [input_mode, panel, file_upload]),
+            (panel,      [input_mode, panel, file_upload]),
         ]:
             trigger.change(
                 _toggle_mode, inputs=inputs,
-                outputs=[upload_section, upload_fluid_section, bmp_manual_section, cbc_manual_section],
+                outputs=[upload_section, upload_fluid_section, bmp_manual_section, cbc_manual_section, run_btn, empty_state],
             )
 
         # ── Prediction callback ────────────────────────────────────────
@@ -496,16 +516,21 @@ def build_predict_tab() -> None:
         n_cbc3 = len(CBC_MANUAL_FIELDS) * 3
 
         def _predict(p, mode, file_path, fluids_manual, fluids_upload, *vals):
-            fluids = fluids_manual if mode == "Manual Entry" else fluids_upload
+            fluids = fluids_manual if mode == "Manual" else fluids_upload
             bmp_vals = vals[:n_bmp3]
             cbc_vals = vals[n_bmp3:n_bmp3 + n_cbc3]
             if p == "BMP":
-                df, csv_path, msg = _run_bmp_prediction(mode, file_path, fluids, *bmp_vals)
+                df, msg = _run_bmp_prediction(mode, file_path, fluids, *bmp_vals)
             else:
-                df, csv_path, msg = _run_cbc_prediction(mode, file_path, *cbc_vals)
+                df, msg = _run_cbc_prediction(mode, file_path, *cbc_vals)
 
             if df is None:
-                return msg, gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
+                return _err(msg), gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
+
+            import datetime as _dt
+            ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_path = str(Path(tempfile.gettempdir()) / f"{p.lower()}_predictions_{ts}.csv")
+            df.to_csv(csv_path, index=False)
             return (
                 msg,
                 gr.update(value=df, visible=True),
@@ -517,7 +542,7 @@ def build_predict_tab() -> None:
             panel, input_mode, file_upload,
             fluid_checkboxes, fluid_checkboxes_upload,
         ] + all_manual
-        _predict_outputs = [status_msg, results_table, download_btn, instructions]
+        _predict_outputs = [status_msg, results_table, download_btn, run_btn]
 
         run_btn.click(
             lambda: (
@@ -560,13 +585,13 @@ def _run_training(
     _hidden = (gr.update(visible=False), gr.update(visible=False))
 
     if not template_file:
-        yield "⚠️ Please upload a training template CSV.", *_hidden
+        yield _err("⚠️ Please upload a training template CSV."), *_hidden
         return
 
     try:
         template_df = pd.read_csv(template_file)
     except Exception as e:
-        yield f"⚠️ Could not read template: {e}", *_hidden
+        yield _err(f"⚠️ Could not read template: {e}"), *_hidden
         return
 
     try:
@@ -626,7 +651,7 @@ def _run_training(
             )
 
     except Exception:
-        yield f"⚠️ Training failed:\n{traceback.format_exc()}", *_hidden
+        yield _err(f"⚠️ Training failed:\n{traceback.format_exc()}"), *_hidden
 
 
 def build_train_tab() -> None:
@@ -638,14 +663,18 @@ def build_train_tab() -> None:
                                  interactive=True, elem_classes="ff-top-radio")
 
                 gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title">Training Data</p>', elem_classes="ff-th")
-                template_file = gr.File(label="Training template CSV", file_types=[".csv"])
-
-                with gr.Group() as bmp_train_extras:
-                    fluids_file = gr.File(
-                        label="Fluid concentrations TSV (optional)",
-                        file_types=[".tsv", ".csv"],
+                with gr.Group():
+                    gr.HTML('<p class="ff-section-title" style="padding:8px 4px 2px">Training Data</p>')
+                    template_file = gr.File(
+                        label="Training template CSV", file_types=[".csv"],
+                        elem_classes="ff-compact-file",
                     )
+                    with gr.Group(visible=True) as bmp_train_extras:
+                        fluids_file = gr.File(
+                            label="Fluid concentrations TSV (optional)",
+                            file_types=[".tsv", ".csv"],
+                            elem_classes="ff-compact-file",
+                        )
 
                 panel.change(
                     lambda p: gr.update(visible=p == "BMP"),
@@ -653,28 +682,21 @@ def build_train_tab() -> None:
                     outputs=bmp_train_extras,
                 )
 
-                gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title">Actions</p>', elem_classes="ff-th")
-                train_btn = gr.Button("🚀  Train Models", variant="primary", size="lg")
-                model_download = gr.DownloadButton("⬇  Download Models (zip)", visible=False, variant="secondary")
-                metrics_download = gr.DownloadButton("⬇  Download CV Metrics CSV", visible=False, variant="secondary")
-                train_status = gr.Markdown("", elem_classes="ff-status")
-
-                gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title">Load Existing Models</p>', elem_classes="ff-th")
-                model_upload = gr.File(
-                    label="Upload .joblib model file(s)",
-                    file_types=[".joblib"],
-                    file_count="multiple",
-                )
-                load_btn = gr.Button("📂  Load Models", variant="secondary")
-                load_status = gr.Markdown("", elem_classes="ff-status")
-
             # ── Right main area ────────────────────────────────────────
             with gr.Column(scale=3):
-                gr.Markdown(
-                    "Upload a wide-format CSV (one row per draw). "
-                    "Prior/post columns (`sodium_prior`, `sodium_post`, …) are required for retrospective models."
+                train_empty_state = gr.HTML(
+                    '<div class="ff-empty-state">'
+                    '<div style="font-size:1.75rem;margin-bottom:10px">📂</div>'
+                    '<p>Upload a <strong>training template CSV</strong> in the sidebar to get started</p>'
+                    '</div>',
+                    visible=True,
+                )
+                gr.HTML(
+                    '<p class="ff-hint">'
+                    'Upload a <strong>wide-format CSV</strong> (one row per draw). '
+                    'Prior/post columns (<code>sodium_prior</code>, <code>sodium_post</code>, …) '
+                    'are required for retrospective models.'
+                    '</p>'
                 )
                 template_preview = gr.DataFrame(
                     label="Template Preview (first 10 rows)",
@@ -687,7 +709,24 @@ def build_train_tab() -> None:
                 )
                 fluids_info = gr.Markdown("", visible=False)
 
-        template_file.change(_preview_csv, inputs=template_file, outputs=[template_preview, template_info])
+                train_btn = gr.Button("🚀  Train Models", variant="primary", size="lg", visible=False)
+                model_download = gr.DownloadButton(
+                    "⬇  Download Models (zip)", visible=False, variant="primary",
+                    elem_id="train-download-btn",
+                )
+                metrics_download = gr.DownloadButton("⬇  Download CV Metrics CSV", visible=False, variant="secondary")
+                train_status = gr.Markdown("", elem_classes="ff-status")
+
+        def _on_template_upload(f):
+            preview, info = _preview_csv(f)
+            has_file = bool(f)
+            return preview, info, gr.update(visible=has_file), gr.update(visible=False), gr.update(visible=not has_file)
+
+        template_file.change(
+            _on_template_upload,
+            inputs=template_file,
+            outputs=[template_preview, template_info, train_btn, model_download, train_empty_state],
+        )
         fluids_file.change(_preview_csv, inputs=fluids_file, outputs=[fluids_preview, fluids_info])
 
         def _train(p, tmpl, fluids, progress=gr.Progress()):
@@ -707,23 +746,17 @@ def build_train_tab() -> None:
             _train,
             inputs=[panel, template_file, fluids_file],
             outputs=_train_outputs,
+        ).then(
+            None,
+            js="""() => {
+                const wrap = document.querySelector('#train-download-btn');
+                if (wrap) {
+                    const a = wrap.querySelector('a');
+                    if (a && a.href) setTimeout(() => a.click(), 300);
+                }
+            }""",
         )
 
-        def _load_models(files):
-            if not files:
-                return "No files selected."
-            loaded = []
-            for f in files:
-                try:
-                    m = load_from_file(f)
-                    key = _model_key(m)
-                    cache_model(key, m)
-                    loaded.append(key)
-                except Exception as e:
-                    return f"Failed to load {Path(f).name}: {e}"
-            return f"✓ Loaded: {', '.join(loaded)}"
-
-        load_btn.click(_load_models, inputs=model_upload, outputs=load_status)
 
 # ---------------------------------------------------------------------------
 # Tab 3 – Review
@@ -733,20 +766,15 @@ def build_review_tab() -> None:
     with gr.Tab("🏷️  Review"):
         with gr.Row():
             with gr.Column(scale=1):
-                gr.HTML('<p class="ff-section-title">Load Predictions</p>', elem_classes="ff-th")
-                review_file = gr.File(label="Upload predictions CSV", file_types=[".csv"])
-                review_preview = gr.DataFrame(
-                    label="Preview (first 10 rows)",
-                    interactive=False, wrap=False, visible=False,
-                )
-                review_preview_info = gr.Markdown("", visible=False)
-                load_review_btn = gr.Button("📂  Load File", variant="secondary")
-                review_status = gr.Markdown("", elem_classes="ff-status")
                 reviewer_name = gr.Textbox(
                     placeholder="Your name (optional)",
-                    label="Reviewer name",
+                    label="Reviewer",
                     max_lines=1,
                 )
+                gr.HTML('<hr class="ff-divider">')
+                gr.HTML('<p class="ff-section-title">Load Predictions</p>', elem_classes="ff-th")
+                review_file = gr.File(label="Upload predictions CSV", file_types=[".csv"])
+                review_status = gr.Markdown("", elem_classes="ff-status")
                 download_labels_btn = gr.DownloadButton(
                     "⬇  Download Labels", visible=False, variant="secondary"
                 )
@@ -754,12 +782,12 @@ def build_review_tab() -> None:
             with gr.Column(scale=2):
                 gr.HTML('<p class="ff-section-title">Label Each Row</p>', elem_classes="ff-th")
                 state = gr.State({"df": None, "labels": [], "timestamps": [], "reviewers": [], "idx": 0})
-                row_counter = gr.Markdown("", elem_classes="ff-counter")
+                row_counter = gr.HTML("")
                 current_row = gr.HTML("<p style='color:#94a3b8;font-size:0.875rem;padding:8px 0'>Load a file to begin reviewing.</p>")
 
                 with gr.Row():
-                    prev_btn = gr.Button("← Previous", elem_classes="btn-nav", variant="secondary")
-                    next_btn = gr.Button("Next →", elem_classes="btn-nav", variant="secondary")
+                    prev_btn = gr.Button("← Prev", elem_classes="btn-nav", variant="secondary", size="sm")
+                    next_btn = gr.Button("Next →", elem_classes="btn-nav", variant="secondary", size="sm")
 
                 with gr.Row():
                     real_btn   = gr.Button("Real",         elem_classes="btn-real",   variant="secondary")
@@ -769,11 +797,11 @@ def build_review_tab() -> None:
         # -- Load file --
         def _load_file(file_path, st):
             if not file_path:
-                return st, "No file uploaded.", gr.update(), ""
+                return st, _err("No file uploaded."), gr.update(), ""
             try:
                 df = pd.read_csv(file_path)
             except Exception as e:
-                return st, f"Error: {e}", gr.update(), ""
+                return st, _err(f"Error: {e}"), gr.update(), ""
             n = len(df)
             new_state = {
                 "df": df.to_dict(orient="records"),
@@ -783,15 +811,12 @@ def build_review_tab() -> None:
                 "idx": 0,
             }
             row_html = _build_review_html(df.iloc[0].to_dict())
-            counter = f"Reviewing 1 of {n}"
-            return new_state, "Review file loaded.", gr.update(value=row_html), counter
+            return new_state, f"✓ {n:,} rows loaded.", gr.update(value=row_html), _counter_html(0, n, 0)
 
         _load_outputs = [state, review_status, current_row, row_counter]
         _load_inputs  = [review_file, state]
 
-        load_review_btn.click(_load_file, inputs=_load_inputs, outputs=_load_outputs)
         review_file.change(_load_file, inputs=_load_inputs, outputs=_load_outputs)
-        review_file.change(_preview_csv, inputs=review_file, outputs=[review_preview, review_preview_info])
 
         # -- Navigation --
         def _go(st, delta):
@@ -802,8 +827,7 @@ def build_review_tab() -> None:
             st = {**st, "idx": idx}
             row_html = _build_review_html(records[idx])
             n_labeled = sum(l is not None for l in st["labels"])
-            counter = f"Reviewing {idx + 1} of {len(records)}  ·  Labeled: {n_labeled}"
-            return st, gr.update(value=row_html), counter
+            return st, gr.update(value=row_html), _counter_html(idx, len(records), n_labeled)
 
         prev_btn.click(_go, inputs=[state, gr.Number(value=-1, visible=False)], outputs=[state, current_row, row_counter])
         next_btn.click(_go, inputs=[state, gr.Number(value=1, visible=False)], outputs=[state, current_row, row_counter])
@@ -822,16 +846,13 @@ def build_review_tab() -> None:
             timestamps[idx] = datetime.datetime.now().isoformat()
             reviewers[idx] = reviewer or ""
 
-            # Advance to next unlabeled row, or just next row
             next_idx = idx + 1
             if next_idx >= len(records):
-                next_idx = idx  # stay on last row
+                next_idx = idx
 
             st = {**st, "labels": labels, "timestamps": timestamps, "reviewers": reviewers, "idx": next_idx}
             n_labeled = sum(l is not None for l in labels)
-            counter = f"Reviewing {next_idx + 1} of {len(records)}  ·  Labeled: {n_labeled}"
 
-            # Build download CSV
             df = pd.DataFrame(records)
             df["human_label"] = labels
             df["label_timestamp"] = timestamps
@@ -839,7 +860,7 @@ def build_review_tab() -> None:
             csv_path = _save_temp_csv(df)
 
             row_html = _build_review_html(records[next_idx])
-            return st, counter, gr.update(value=csv_path, visible=True), gr.update(value=row_html)
+            return st, _counter_html(next_idx, len(records), n_labeled), gr.update(value=csv_path, visible=True), gr.update(value=row_html)
 
         for btn, lbl in [(real_btn, "Real"), (equiv_btn, "Equivocal"), (contam_btn, "Contaminated")]:
             btn.click(
@@ -872,34 +893,35 @@ def build_self_test_tab() -> None:
                     interactive=True, elem_classes="ff-top-radio",
                 )
                 new_case_btn = gr.Button("🎲  New Case", variant="primary", size="lg")
+                name_input = gr.Textbox(
+                    placeholder="Your name (optional)",
+                    label="Name",
+                    max_lines=1,
+                )
                 gr.HTML('<hr class="ff-divider">')
                 gr.HTML('<p class="ff-section-title">Score</p>', elem_classes="ff-th")
-                score_md = gr.Markdown("No cases attempted yet.")
+                score_md = gr.HTML(format_score(0, 0))
 
             # ── Right column: case display + buttons ──────────────────
             with gr.Column(scale=2):
                 gr.HTML('<p class="ff-section-title">Current Case</p>', elem_classes="ff-th")
 
                 state = gr.State({
-                    "case": None,      # dict from generate_case()
+                    "case": None,
                     "revealed": False,
                     "correct": 0,
                     "total": 0,
-                    "session_id": None,  # UUID assigned on first New Case
+                    "session_id": None,
                 })
 
                 case_html   = gr.HTML(_PLACEHOLDER, elem_classes="ff-case-display")
                 answer_area = gr.HTML("", elem_classes="ff-case-display")
 
-                with gr.Row(elem_classes="ff-btn-row"):
-                    real_btn   = gr.Button("Real",         elem_classes="btn-real",   variant="secondary", scale=1, min_width=80)
-                    contam_btn = gr.Button("Contaminated", elem_classes="btn-contam", variant="secondary", scale=1, min_width=80)
+                next_case_btn = gr.Button("Next Case →", variant="secondary", visible=False, size="lg")
 
-                name_input = gr.Textbox(
-                    placeholder="Your name (optional)",
-                    label="Name",
-                    max_lines=1,
-                )
+                with gr.Row(elem_classes="ff-btn-row"):
+                    real_btn   = gr.Button("Real",         elem_classes="btn-real   ff-guess-btn", variant="secondary", scale=1)
+                    contam_btn = gr.Button("Contaminated", elem_classes="btn-contam ff-guess-btn", variant="secondary", scale=1)
 
         # ── Callbacks ────────────────────────────────────────────────
 
@@ -912,6 +934,7 @@ def build_self_test_tab() -> None:
                     f"<p style='color:#b91c1c'>{case['error']}</p>",
                     "",
                     format_score(st["correct"], st["total"]),
+                    gr.update(visible=False),
                 )
             new_st = {**st, "case": case, "revealed": False, "session_id": session_id}
             row_html = _build_review_html(case["row_dict"])
@@ -920,21 +943,22 @@ def build_self_test_tab() -> None:
                 row_html,
                 "",
                 format_score(st["correct"], st["total"]),
+                gr.update(visible=False),
             )
 
-        _case_outputs = [state, case_html, answer_area, score_md]
+        _case_outputs = [state, case_html, answer_area, score_md, next_case_btn]
 
         new_case_btn.click(_new_case, inputs=[panel_radio, state], outputs=_case_outputs)
+        next_case_btn.click(_new_case, inputs=[panel_radio, state], outputs=_case_outputs)
 
         def _guess(guess: str, st: dict, name: str):
             if st["case"] is None:
-                return st, "", gr.update()
+                return st, "", gr.update(), gr.update(visible=False)
 
             case     = st["case"]
             revealed = st["revealed"]
-
-            correct = st["correct"]
-            total   = st["total"]
+            correct  = st["correct"]
+            total    = st["total"]
 
             if not revealed:
                 total += 1
@@ -946,9 +970,9 @@ def build_self_test_tab() -> None:
 
             answer_html = build_answer_html(case, guess)
             score_text  = format_score(correct, total)
-            return new_st, answer_html, score_text
+            return new_st, answer_html, score_text, gr.update(visible=True)
 
-        _guess_outputs = [state, answer_area, score_md]
+        _guess_outputs = [state, answer_area, score_md, next_case_btn]
 
         for btn, lbl in [
             (real_btn,   "Real"),
@@ -999,6 +1023,12 @@ _THEME = gr.themes.Base(
 )
 
 _CSS = """
+/* ── Animations ────────────────────────────────────────────── */
+@keyframes ff-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Page chrome ───────────────────────────────────────────── */
 .gradio-container { max-width: 1400px !important; margin: 0 auto !important; }
 
@@ -1006,7 +1036,7 @@ _CSS = """
 .ff-header {
     background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
     border-radius: 16px;
-    padding: 32px 40px;
+    padding: 18px 32px;
     margin-bottom: 8px;
     color: white;
 }
@@ -1087,6 +1117,16 @@ _CSS = """
     margin-bottom: 6px !important;
     padding: 0 !important;
 }
+/* Radio tiles: stretch to fill container width */
+.ff-top-radio .wrap {
+    display: flex !important;
+    gap: 4px !important;
+}
+.ff-top-radio .wrap > label {
+    flex: 1 !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+}
 
 /* ── Manual entry grid ─────────────────────────────────────── */
 .ff-grid-header {
@@ -1151,6 +1191,59 @@ _CSS = """
 .ff-btn-row { flex-wrap: nowrap !important; }
 .ff-btn-row button { min-width: 0 !important; }
 
+/* ── Error status pill ─────────────────────────────────────── */
+.ff-err {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+/* ── Fluid checkboxes: 2-column grid, no overflow ──────────── */
+.ff-fluid-filter .wrap,
+.ff-fluid-filter > .wrap {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2px 8px !important;
+}
+.ff-fluid-filter .wrap > label,
+.ff-fluid-filter > .wrap > label {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* ── Review: label buttons — larger + equal width ──────────── */
+.btn-real button, .btn-equiv button, .btn-contam button {
+    padding: 12px 8px !important;
+    font-size: 0.9375rem !important;
+    width: 100% !important;
+}
+
+/* ── Self-test guess buttons: larger ───────────────────────── */
+.ff-guess-btn button {
+    padding: 14px 24px !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    min-height: 52px !important;
+}
+
+/* ── Empty state ───────────────────────────────────────────── */
+.ff-empty-state {
+    text-align: center;
+    padding: 52px 24px;
+    background: #f8fafc;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #94a3b8;
+    margin: 4px 0;
+}
+.ff-empty-state p { color: #94a3b8 !important; font-size: 0.9rem !important; margin: 0 !important; }
+
 /* ── Compact file upload ───────────────────────────────────── */
 .ff-compact-file .upload-container,
 .ff-compact-file [data-testid="file-upload"],
@@ -1178,7 +1271,6 @@ _CSS = """
     border: 1px solid #e2e8f0 !important;
     border-radius: 12px;
     padding: 20px 22px;
-    color-scheme: light;
 }
 .ff-instr-icon { font-size: 1.5rem; margin-bottom: 8px; }
 .ff-instr-card h4 {
@@ -1203,6 +1295,72 @@ _CSS = """
     border-radius: 4px;
     padding: 1px 5px;
 }
+
+/* ── Hint text ─────────────────────────────────────────────── */
+.ff-hint {
+    font-size: 0.875rem;
+    color: #475569;
+    margin: 0 0 4px 0;
+    line-height: 1.6;
+}
+.ff-hint code {
+    background: #e2e8f0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+}
+
+/* ── Review table ──────────────────────────────────────────── */
+.ff-rv-wrap { overflow-x: auto; margin: 4px 0 12px 0; border: none; }
+.ff-rv-table { border-collapse: collapse; font-size: 0.875rem; font-family: inherit; width: 100%; border: none; }
+.ff-rv-th-lbl {
+    text-align: right; padding: 8px 6px; font-weight: 600; font-style: italic;
+    font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em;
+    white-space: nowrap; min-width: 60px; border: none;
+}
+.ff-rv-th-col {
+    text-align: center; padding: 8px 16px; background: #f8fafc; font-weight: 600;
+    font-style: italic; color: #475569; font-size: 0.8125rem; white-space: nowrap; border: none;
+}
+.ff-rv-td-prior { text-align: center; padding: 8px 16px; background: #f5f3ff; color: #4b5563; white-space: nowrap; border: none; }
+.ff-rv-td-post  { text-align: center; padding: 8px 16px; background: #f0fdf4; color: #4b5563; white-space: nowrap; border: none; }
+.ff-rv-td-curr  { text-align: center; padding: 0; white-space: nowrap; border: none; }
+.ff-rv-curr-inner { background: #f0f9ff; padding: 2px 14px; text-align: center; }
+.ff-rv-num { display: block; font-size: 0.875rem; font-weight: 700; line-height: 1.3; text-align: center; color: #1e40af; }
+.ff-rv-arrow-up   { display: block; font-size: 0.6rem; line-height: 1; color: #22d3ee; height: 11px; text-align: center; }
+.ff-rv-arrow-dn   { display: block; font-size: 0.6rem; line-height: 1; color: #f472b6; height: 11px; text-align: center; }
+.ff-rv-arrow-none { display: block; height: 11px; }
+.ff-rv-lbl-prior { color: #818cf8; }
+.ff-rv-lbl-curr  { color: #38bdf8; }
+.ff-rv-lbl-post  { color: #34d399; }
+
+/* ── Review progress counter ───────────────────────────────── */
+.ff-counter-wrap { margin: 4px 0 8px 0; }
+.ff-counter-text { font-size: 0.8125rem; color: #64748b; font-variant-numeric: tabular-nums; margin-bottom: 5px; }
+.ff-counter-track { background: #e2e8f0; border-radius: 4px; height: 5px; overflow: hidden; }
+.ff-counter-fill  { background: #2563eb; height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+
+/* ── Dark mode overrides ───────────────────────────────────── */
+.dark .ff-empty-state { background: #1e293b; border-color: #334155; }
+.dark .ff-empty-state p { color: #64748b !important; }
+
+.dark .ff-instr-card { background: #1e293b !important; border-color: #334155 !important; }
+.dark .ff-instr-card h4 { color: #f1f5f9 !important; }
+.dark .ff-instr-card p,
+.dark .ff-instr-card p strong { color: #94a3b8 !important; }
+.dark .ff-instr-card code { background: #334155 !important; color: #cbd5e1 !important; }
+
+.dark .ff-hint { color: #94a3b8; }
+.dark .ff-hint code { background: #334155; color: #cbd5e1; }
+
+.dark .ff-rv-th-col { background: #1e293b; color: #94a3b8; }
+.dark .ff-rv-td-prior { background: #2d2a4a; color: #cbd5e1; }
+.dark .ff-rv-td-post  { background: #0f2a1e; color: #cbd5e1; }
+.dark .ff-rv-curr-inner { background: #0c1f30; }
+.dark .ff-rv-num { color: #93c5fd; }
+
+.dark .ff-counter-text { color: #94a3b8; }
+.dark .ff-counter-track { background: #334155; }
 """
 
 # ---------------------------------------------------------------------------
