@@ -28,17 +28,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history so we can push cleanly
 
-      - name: Push to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_USERNAME: nickspies
-          HF_SPACE: fluidflagger
+      - name: Clone HF Spaces repo
         run: |
-          git config user.email "ci@github.com"
-          git config user.name "GitHub Actions"
-          git remote add hf \
-            https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_SPACE
-          git push hf main --force
+          git clone https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/NickSpies/fluidflagger hf-space
+
+      - name: Sync files and push to HF Spaces
+        run: |
+          cd hf-space
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git remote set-url origin https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/NickSpies/fluidflagger
+
+          # Orphan commit to wipe HF Spaces history and avoid carrying over binary artifacts
+          git checkout --orphan new-main
+          git rm -rf --cached .
+          find . -mindepth 1 -not -path './.git' -not -path './.git/*' -delete
+
+          cp -r ../src .
+          cp -r ../data .
+          cp ../app.py .
+          cp ../requirements.txt .
+          cp ../.gitignore .
+
+          git add -A
+          git commit -m "Sync from GitHub ($(git rev-parse --short ${{ github.sha }}))"
+          git push origin new-main:main --force
