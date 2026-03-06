@@ -12,7 +12,7 @@ jobs:
 
       - name: Clone HF Spaces repo
         run: |
-          git clone https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nickspies/FluidFlagger hf-space
+          git clone https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nickspies/fluidflagger hf-space
 
       - name: Sync files to HF Spaces
         run: |
@@ -29,7 +29,7 @@ jobs:
           # Configure git for HF
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git remote set-url origin https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nickspies/FluidFlagger
+          git remote set-url origin https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nickspies/fluidflagger
 
           # Commit and push if there are changes
           if git diff --quiet; then
