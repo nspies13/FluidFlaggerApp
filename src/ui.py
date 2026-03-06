@@ -160,40 +160,11 @@ CBC_MANUAL_FIELDS = [
     ("Plt", "Platelets",  "×10³/µL", 150.0, 400.0),
 ]
 
-_INSTRUCTIONS_HTML = """
-<div class="ff-instructions">
-  <div class="ff-instr-grid">
-    <div class="ff-instr-card">
-      <div class="ff-instr-icon">📁</div>
-      <h4>Upload a CSV</h4>
-      <p>Upload a <strong>wide-format</strong> CSV (one row per draw, analyte values as columns) or a <strong>long-format</strong> CSV (one row per analyte, with a <code>TASK_ASSAY</code> column). Format is detected automatically. Include <code>_prior</code> and <code>_post</code> columns to enable retrospective models.</p>
-    </div>
-    <div class="ff-instr-card">
-      <div class="ff-instr-icon">✏️</div>
-      <h4>Manual Entry</h4>
-      <p>Enter values for a single draw across three timepoints: the <strong>prior draw</strong>, the <strong>current draw</strong>, and the <strong>post draw</strong>. Prior and post values are optional but enable retrospective models.</p>
-    </div>
-    <div class="ff-instr-card">
-      <div class="ff-instr-icon">🧪</div>
-      <h4>Panels</h4>
-      <p><strong>BMP</strong> — Na, Cl, K, CO₂, BUN, Creatinine, Ca, Glucose. Tests against any combination of IV fluids.<br><br>
-         <strong>CBC</strong> — Hemoglobin, WBC, Platelets. Detects dilutional contamination.</p>
-    </div>
-    <div class="ff-instr-card">
-      <div class="ff-instr-icon">📊</div>
-      <h4>Output</h4>
-      <p>Each row in the results shows a <strong>contamination probability</strong> per fluid and timing (realtime vs. retrospective), plus estimated mix ratio for flagged draws.</p>
-    </div>
-  </div>
-</div>
-"""
-
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
 _ERR_STYLE  = "display:inline-block;padding:6px 14px;border-radius:9999px;font-size:0.875rem;font-weight:500;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5"
-_WARN_STYLE = "display:inline-block;padding:6px 14px;border-radius:9999px;font-size:0.875rem;font-weight:500;background:#fffbeb;color:#92400e;border:1px solid #fde68a"
 
 
 def _err(msg: str) -> str:

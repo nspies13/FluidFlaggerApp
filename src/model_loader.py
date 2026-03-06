@@ -100,10 +100,6 @@ def clear_cache() -> None:
     _cache.clear()
 
 
-def cached_keys() -> list[str]:
-    return list(_cache.keys())
-
-
 def model_key(model_dict: dict) -> str:
     """Canonical filename stem for a model, e.g. 'bmp_NS_Realtime'."""
     panel = model_dict["panel"]
@@ -113,32 +109,6 @@ def model_key(model_dict: dict) -> str:
     if task == "mix_ratio":
         return f"{panel}_{fluid}_mix_ratio"
     return f"{panel}_{fluid}_{typ}"
-
-# ---------------------------------------------------------------------------
-# Availability helpers
-# ---------------------------------------------------------------------------
-
-def _probe_key(key: str) -> bool:
-    """Return True if the model is in cache or downloadable from HF Hub."""
-    if key in _cache:
-        return True
-    m = get_model(key)
-    return m is not None
-
-
-def available_bmp_fluids(timings: tuple[str, ...] = ("Realtime", "Retrospective")) -> list[str]:
-    """Return the list of BMP fluid names that have at least one model available."""
-    from .simulate import get_fluid_names
-    try:
-        all_fluids = get_fluid_names()
-    except Exception:
-        all_fluids = ["NS", "LR", "D5NS", "D5LR", "D5W", "D5halfNSwK", "D5halfNS", "halfNS", "Water"]
-    return [f for f in all_fluids if any(_probe_key(bmp_classification_key(f, t)) for t in timings)]
-
-
-def available_cbc_timings() -> list[str]:
-    return [t for t in ("Realtime", "Retrospective") if _probe_key(cbc_classification_key(t))]
-
 
 def load_models_from_dir(directory: str | Path) -> dict[str, dict]:
     """

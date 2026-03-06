@@ -13,7 +13,7 @@ import pytest
 
 from src.features import BMP_ANALYTES, CBC_ANALYTES
 from src.inference import label_pred_class, make_bmp_predictions, make_cbc_predictions
-from src.model_loader import cache_model, clear_cache
+from src.model_loader import cache_model, clear_cache, model_key
 from src.train import train_bmp_models, train_cbc_models
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -76,7 +76,6 @@ def bmp_models_in_cache():
     df = _make_synthetic_bmp_df(n=60)
     models = train_bmp_models(df, fluids_df=ns_fluids)
     for m in models:
-        from src.train import model_key
         cache_model(model_key(m), m)
     yield models
     clear_cache()
@@ -89,7 +88,6 @@ def cbc_models_in_cache():
     df = _make_synthetic_cbc_df(n=60)
     models = train_cbc_models(df)
     for m in models:
-        from src.train import model_key
         cache_model(model_key(m), m)
     yield models
     clear_cache()
