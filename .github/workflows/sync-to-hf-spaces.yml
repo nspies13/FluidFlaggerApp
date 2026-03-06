@@ -18,6 +18,11 @@ jobs:
         run: |
           cd hf-space
 
+          # Configure git for HF
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git remote set-url origin https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/NickSpies/fluidflagger
+
           # Copy source files
           rm -rf src data app.py requirements.txt .gitignore
           cp -r ../src .
@@ -26,16 +31,8 @@ jobs:
           cp ../requirements.txt .
           cp ../.gitignore .
 
-          # Configure git for HF
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git remote set-url origin https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/NickSpies/fluidflagger
-
-          # Commit and push if there are changes
-          if git diff --quiet; then
-            echo "No changes to sync"
-          else
-            git add -A
-            git commit -m "Sync from GitHub ($(git rev-parse --short ${{ github.sha }}))"
-            git push origin main
-          fi
+          # Create a fresh orphan commit to avoid binary files in history
+          git checkout --orphan new-main
+          git add -A
+          git commit -m "Sync from GitHub ($(git rev-parse --short ${{ github.sha }}))"
+          git push origin new-main:main --force
