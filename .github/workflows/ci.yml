@@ -51,6 +51,7 @@ jobs:
           cp ../app.py .
           cp ../requirements.txt .
           cp ../.gitignore .
+          cp ../README.md .
 
           git add -A
           git commit -m "Sync from GitHub ($(git rev-parse --short ${{ github.sha }}))"
