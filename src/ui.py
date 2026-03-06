@@ -1255,12 +1255,21 @@ _CSS = """
 /* ── Compact file upload ───────────────────────────────────── */
 .ff-compact-file .upload-container,
 .ff-compact-file [data-testid="file-upload"],
+.ff-compact-file [data-testid="upload-container"],
 .ff-compact-file .file-preview {
     min-height: 60px !important;
     max-height: 60px !important;
     padding: 8px 12px !important;
+    overflow: hidden !important;
 }
+/* Hide upload icon — Gradio 4.x uses .icon-wrap, 5+/6.x uses inline SVG */
 .ff-compact-file .upload-container .icon-wrap { display: none !important; }
+.ff-compact-file .upload-container > label > .wrap > svg,
+.ff-compact-file .upload-container > .wrap > svg,
+.ff-compact-file [data-testid="upload-container"] svg,
+.ff-compact-file [data-testid="file-upload"] svg {
+    display: none !important;
+}
 .ff-compact-file .upload-container p,
 .ff-compact-file .upload-container span {
     font-size: 0.8rem !important;
