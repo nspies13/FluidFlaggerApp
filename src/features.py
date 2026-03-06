@@ -191,7 +191,7 @@ def _parse_datetime(series: pd.Series) -> pd.Series:
         except Exception:
             continue
     if result is pd.NaT:
-        result = pd.to_datetime(series, infer_datetime_format=True, errors="coerce", utc=True)
+        result = pd.to_datetime(series, format="mixed", errors="coerce", utc=True)
     return result
 
 

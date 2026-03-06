@@ -193,12 +193,14 @@ def make_bmp_predictions(
 
     if rt_prob_no_lr:
         result["max_realtime_prob"] = result[rt_prob_no_lr].max(axis=1)
-        result["max_prob_fluid_realtime"] = result[rt_prob_no_lr].idxmax(axis=1).str.split("_").str[1]
+        _rt = result[rt_prob_no_lr]
+        result["max_prob_fluid_realtime"] = _rt[_rt.notna().any(axis=1)].idxmax(axis=1).str.split("_").str[1]
     if rt_prob_cols:
         result["max_realtime_prob_with_LR"] = result[rt_prob_cols].max(axis=1)
     if retro_prob_no_lr:
         result["max_retrospective_prob"] = result[retro_prob_no_lr].max(axis=1)
-        result["max_prob_fluid_retrospective"] = result[retro_prob_no_lr].idxmax(axis=1).str.split("_").str[1]
+        _retro = result[retro_prob_no_lr]
+        result["max_prob_fluid_retrospective"] = _retro[_retro.notna().any(axis=1)].idxmax(axis=1).str.split("_").str[1]
     if retro_prob_cols:
         result["max_retrospective_prob_with_LR"] = result[retro_prob_cols].max(axis=1)
 
