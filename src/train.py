@@ -31,6 +31,7 @@ from .features import (
     BMPFeatureTransformer,
     CBCFeatureTransformer,
 )
+from .model_loader import model_key
 from .simulate import (
     get_fluid_concentrations,
     make_binary_training_data_bmp,
@@ -345,17 +346,6 @@ def train_cbc_models(
 # ---------------------------------------------------------------------------
 # Save / upload / CLI
 # ---------------------------------------------------------------------------
-
-def model_key(model_dict: dict) -> str:
-    """Canonical filename stem for a model, e.g. 'bmp_NS_Realtime'."""
-    panel = model_dict["panel"]
-    fluid = model_dict["fluid"]
-    typ = model_dict["type"]
-    task = model_dict["task"]
-    if task == "mix_ratio":
-        return f"{panel}_{fluid}_mix_ratio"
-    return f"{panel}_{fluid}_{typ}"
-
 
 def save_models(models: list[dict], output_dir: str | Path, compress: int = 3) -> list[Path]:
     """Save model dicts as joblib files. Returns list of saved paths."""
