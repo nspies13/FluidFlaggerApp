@@ -34,7 +34,7 @@ jobs:
       - name: Push to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_USERNAME: nspies13
+          HF_USERNAME: nickspies
           HF_SPACE: fluidflagger
         run: |
           git config user.email "ci@github.com"
