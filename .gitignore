@@ -1,0 +1,40 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.env
+*.joblib
+models/
+data/training_templates/
+.cache/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.tmp
+*.zip
+data/self_test_log.db*
+fluidflagger-inference.tar.gz
+dev/exemplar_bank/features.csv
+dev/exemplar_bank/labels.npy
+
+# macOS
+.DS_Store
+
+# LaTeX build artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.spl
+paper/files/*.log
+paper/files/*.out
+
+# Large validation sets (kept out of VCS; used by paper/validate_models.py)
+data/*_validation_set.csv
+
+# Generated paper artifacts (compiled PDF + figures; regenerate with
+# paper/validate_models.py and latexmk). HF Spaces rejects non-LFS binaries.
+paper/files/*.pdf
+paper/files/*.png
