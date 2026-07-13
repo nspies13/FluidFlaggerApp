@@ -1,0 +1,10 @@
+fluid	sodium	chloride	potassium_plas	co2_totl	bun	creatinine	calcium	glucose
+NS	154	154	0	0	0	0	0	0
+LR	130	109	4	0	0	0	5.4	0
+D5NS	154	154	0	0	0	0	0	5000
+D5LR	130	109	4	0	0	0	5.4	5000
+D5W	0	0	0	0	0	0	0	5000
+D5halfNSwK	77	97	20	0	0	0	0	5000
+D5halfNS	77	77	0	0	0	0	0	5000
+halfNS	77	77	0	0	0	0	0	0
+Water	0	0	0	0	0	0	0	0

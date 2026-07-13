@@ -1,0 +1,17 @@
+{
+  "name": "fluidflagger-bmp-v1",
+  "image": "acr.prod.algosuite.navify.com/{tenantAlias}/fluidflagger-bmp:{tag}",
+  "version": "{tag}",
+  "containerPort": 8080,
+  "healthChecks": {
+    "liveness": {
+      "path": "/health/live",
+      "initialDelayInSeconds": 30
+    },
+    "readiness": {
+      "path": "/health/ready",
+      "initialDelayInSeconds": 30
+    }
+  },
+  "environmentVariables": []
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "sodium": 148,
+    "chloride": 144,
+    "potassium_plas": 2.7,
+    "co2_totl": 16,
+    "bun": 40,
+    "creatinine": 2.42,
+    "calcium": 6.9,
+    "glucose": 181,
+    "sodium_prior": 132,
+    "chloride_prior": 83,
+    "potassium_plas_prior": 4.5,
+    "co2_totl_prior": 24,
+    "bun_prior": 49,
+    "creatinine_prior": 3.62,
+    "calcium_prior": 10.3,
+    "glucose_prior": 135,
+    "sodium_post": 135,
+    "chloride_post": 94,
+    "potassium_plas_post": 3.4,
+    "co2_totl_post": 28,
+    "bun_post": 32,
+    "creatinine_post": 1.75,
+    "calcium_post": 9.0,
+    "glucose_post": 133
+  }
+]
