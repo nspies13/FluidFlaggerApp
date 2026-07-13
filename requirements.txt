@@ -13,3 +13,4 @@ python-dateutil>=2.9.0
 optuna>=3.6.0
 shap>=0.45.0
 matplotlib>=3.8.0
+plotnine>=0.15.0

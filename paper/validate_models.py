@@ -7,8 +7,8 @@ held-out validation sets:
                                  pipeline shipped in the validation CSV
                                  (SILVER standard, available for every row)
 
-For each panel we score every specimen with the local FluidFlagger realtime and
-retrospective classifiers, then evaluate discrimination (AUROC, AUPRC) and the
+For each panel we score every specimen with the local FluidFlagger real-time and
+retrospective classifiers, then evaluate discrimination (auROC, auPRC) and the
 operating point at the p>=0.75 contamination threshold (sensitivity, specificity,
 PPV, NPV) against each reference standard.
 
@@ -133,10 +133,10 @@ def score_bmp():
     return {
         "panel": "BMP",
         "expert": expert,
-        "ff_realtime": res["max_realtime_prob"].values,
+        "ff_real-time": res["max_realtime_prob"].values,
         "ff_retro": res["max_retrospective_prob"].values,
         "ref_retro": ref_retro,
-        "ref_realtime": ref_rt,
+        "ref_real-time": ref_rt,
     }
 
 
@@ -150,10 +150,10 @@ def score_cbc():
     return {
         "panel": "CBC",
         "expert": expert,
-        "ff_realtime": res["max_realtime_prob"].values,
+        "ff_real-time": res["max_realtime_prob"].values,
         "ff_retro": res["max_retrospective_prob"].values,
         "ref_retro": ref_retro,
-        "ref_realtime": None,
+        "ref_real-time": None,
     }
 
 
@@ -170,12 +170,12 @@ def gold_metrics(scored):
         m = ~np.isnan(d["expert"])
         y = d["expert"][m]
         scorers = [
-            ("FluidFlagger realtime", d["ff_realtime"][m]),
+            ("FluidFlagger real-time", d["ff_real-time"][m]),
             ("FluidFlagger retrospective", d["ff_retro"][m]),
             ("Reference retrospective", d["ref_retro"][m]),
         ]
-        if d["ref_realtime"] is not None:
-            scorers.insert(2, ("Reference realtime", d["ref_realtime"][m]))
+        if d["ref_real-time"] is not None:
+            scorers.insert(2, ("Reference real-time", d["ref_real-time"][m]))
         for name, s in scorers:
             r = evaluate(y, s, name)
             r["panel"] = panel
@@ -184,13 +184,13 @@ def gold_metrics(scored):
 
 
 def silver_metrics(scored):
-    """Realtime/retrospective FF models vs binarised retrospective reference,
+    """real-time/retrospective FF models vs binarised retrospective reference,
     evaluated on every specimen (the reference covers the full set)."""
     rows = []
     for d in scored:
         panel = d["panel"]
         y = (d["ref_retro"] >= THRESHOLD).astype(float)
-        for name, s in [("FluidFlagger realtime", d["ff_realtime"]),
+        for name, s in [("FluidFlagger real-time", d["ff_real-time"]),
                         ("FluidFlagger retrospective", d["ff_retro"])]:
             r = evaluate(y, s, name, bootstrap=False)
             r["panel"] = panel
@@ -220,101 +220,352 @@ def dataset_summary(scored):
 # ---------------------------------------------------------------------------
 
 
-def _setup_mpl():
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({
-        "font.family": "serif",
-        "font.size": 9,
-        "axes.titlesize": 10,
-        "axes.labelsize": 9,
-        "legend.fontsize": 7.5,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "figure.dpi": 150,
-    })
-    return plt
+MODEL_LABELS = {
+    "FluidFlagger real-time": "FF real-time",
+    "FluidFlagger retrospective": "FF retrospective",
+    "Reference retrospective": "Reference retrospective",
+    "Reference real-time": "Reference real-time",
+}
 
+MODEL_COLORS = {
+    "FF real-time": "#0072B2",
+    "FF retrospective": "#D55E00",
+    "Reference retrospective": "#009E73",
+    "Reference real-time": "#6C757D",
+}
 
-CURVE_COLORS = {
-    "FluidFlagger realtime": "#1f77b4",
-    "FluidFlagger retrospective": "#d62728",
-    "Reference retrospective": "#7f7f7f",
-    "Reference realtime": "#bcbd22",
+MODEL_LINETYPES = {
+    "FF real-time": "solid",
+    "FF retrospective": "dashed",
+    "Reference retrospective": "dashdot",
+    "Reference real-time": "dotted",
+}
+
+EXPERT_COLORS = {
+    "Real": "#D55E00",
+    "Contaminated": "#0072B2",
 }
 
 
-def plot_roc_pr(scored):
-    plt = _setup_mpl()
-    fig, axes = plt.subplots(2, 2, figsize=(7.2, 6.6))
-    for col, d in enumerate(scored):
+def _setup_plotnine():
+    from plotnine import (
+        element_blank,
+        element_line,
+        element_text,
+        theme,
+        theme_minimal,
+        theme_set,
+    )
+    from plotnine.themes.elements import margin
+
+    theme_ns = theme_minimal(base_family="Helvetica") + theme(
+        text=element_text(family="Helvetica"),
+        plot_title=element_text(
+            size=16, weight="bold", style="italic", ha="left",
+            margin=margin(0, 0, 6, 0)
+        ),
+        plot_subtitle=element_text(
+            size=14, weight="normal", ha="left",
+            margin=margin(0, 0, 2, 0)
+        ),
+        axis_title=element_text(
+            size=12, weight="bold", margin=margin(4, 4, 4, 4)
+        ),
+        axis_title_x=element_text(weight="bold", margin=margin(4, 0, 0, 0)),
+        axis_title_y=element_text(weight="bold", margin=margin(0, 4, 0, 0)),
+        axis_text_x=element_text(margin=margin(2, 0, 0, 0)),
+        axis_text_y=element_text(margin=margin(0, 2, 0, 0)),
+        legend_title=element_text(
+            weight="bold", style="italic", size=12,
+            margin=margin(0, 4, 0, 0)
+        ),
+        legend_text=element_text(margin=margin(0, 2, 0, 2)),
+        axis_line=element_line(color="#333333", size=0.4),
+        axis_ticks=element_blank(),
+        panel_grid=element_blank(),
+        panel_background=element_blank(),
+        plot_background=element_blank(),
+        legend_key=element_blank(),
+        legend_key_size=9,
+        legend_key_width=14,
+        legend_key_height=8,
+        legend_background=element_blank(),
+        legend_box_background=element_blank(),
+        strip_text=element_text(
+            size=12, weight="bold", margin=margin(0, 0, 2, 0)
+        ),
+        strip_background=element_blank(),
+    )
+    theme_set(theme_ns)
+    return theme_ns
+
+
+def _save_plotnine(plot, filename: str, width: float, height: float):
+    plot.save(OUT / f"{filename}.pdf", width=width, height=height,
+              units="in", dpi=300, limitsize=False, verbose=False)
+    plot.save(OUT / f"{filename}.png", width=width, height=height,
+              units="in", dpi=300, limitsize=False, verbose=False)
+
+
+def _curve_frames(scored):
+    curve_rows = []
+    baseline_roc_rows = []
+    baseline_pr_rows = []
+
+    for d in scored:
         panel = d["panel"]
         m = ~np.isnan(d["expert"])
         y = d["expert"][m].astype(int)
         prevalence = y.mean()
         curves = [
-            ("FluidFlagger realtime", d["ff_realtime"][m]),
+            ("FluidFlagger real-time", d["ff_real-time"][m]),
             ("FluidFlagger retrospective", d["ff_retro"][m]),
             ("Reference retrospective", d["ref_retro"][m]),
         ]
-        ax_roc, ax_pr = axes[0, col], axes[1, col]
+
+        baseline_roc_rows.extend([
+            {"panel": panel, "curve": "ROC", "x": 0, "y": 0},
+            {"panel": panel, "curve": "ROC", "x": 1, "y": 1},
+        ])
+        baseline_pr_rows.append({
+            "panel": panel, "curve": "PR",
+            "prevalence": prevalence,
+        })
+
         for name, s in curves:
+            model = MODEL_LABELS[name]
             yy, ss = _clean(y, s)
+
             fpr, tpr, _ = roc_curve(yy, ss)
-            ax_roc.plot(fpr, tpr, color=CURVE_COLORS[name], lw=1.4,
-                        label=f"{name} (AUROC {roc_auc_score(yy, ss):.3f})")
+            curve_rows.extend({
+                "panel": panel,
+                "curve": "ROC",
+                "model": model,
+                "x": x,
+                "y": yy_,
+                "order": j,
+            } for j, (x, yy_) in enumerate(zip(fpr, tpr)))
+
             prec, rec, _ = precision_recall_curve(yy, ss)
-            ax_pr.plot(rec, prec, color=CURVE_COLORS[name], lw=1.4,
-                       label=f"{name} (AUPRC {average_precision_score(yy, ss):.3f})")
-        ax_roc.plot([0, 1], [0, 1], ":", color="0.6", lw=1)
-        ax_roc.set(xlim=(0, 1), ylim=(0, 1.02),
-                   xlabel="1 − specificity", ylabel="Sensitivity",
-                   title=f"{panel}: ROC vs expert review")
-        ax_roc.legend(loc="lower right", frameon=False)
-        ax_pr.axhline(prevalence, ls=":", color="0.6", lw=1)
-        ax_pr.set(xlim=(0, 1), ylim=(0, 1.02),
-                  xlabel="Recall (sensitivity)", ylabel="Precision (PPV)",
-                  title=f"{panel}: precision–recall")
-        ax_pr.legend(loc="upper right", frameon=False)
-    fig.tight_layout()
-    fig.savefig(OUT / "validation_roc_pr.pdf")
-    fig.savefig(OUT / "validation_roc_pr.png", dpi=150)
-    plt.close(fig)
+            curve_rows.extend({
+                "panel": panel,
+                "curve": "PR",
+                "model": model,
+                "x": x,
+                "y": yy_,
+                "order": j,
+            } for j, (x, yy_) in enumerate(zip(rec, prec)))
+
+    curve_df = pd.DataFrame(curve_rows)
+    roc_baseline = pd.DataFrame(baseline_roc_rows)
+    pr_baseline = pd.DataFrame(baseline_pr_rows)
+
+    curve_order = ["ROC", "PR"]
+    panel_order = ["BMP", "CBC"]
+    model_order = ["FF real-time", "FF retrospective", "Reference retrospective"]
+    facet_order = [
+        "BMP ROC",
+        "CBC ROC",
+        "BMP PR",
+        "CBC PR",
+    ]
+    for df in [curve_df, roc_baseline, pr_baseline]:
+        df["curve"] = pd.Categorical(df["curve"], categories=curve_order, ordered=True)
+        df["panel"] = pd.Categorical(df["panel"], categories=panel_order, ordered=True)
+        df["facet"] = (
+            df["panel"].astype(str) + " " +
+            df["curve"].astype(str)
+        )
+        df["facet"] = pd.Categorical(df["facet"], categories=facet_order, ordered=True)
+    curve_df["model"] = pd.Categorical(curve_df["model"], categories=model_order, ordered=True)
+    return curve_df, roc_baseline, pr_baseline
+
+
+def _score_distribution_frame(scored):
+    rows = []
+    for d in scored:
+        panel = d["panel"]
+        m = ~np.isnan(d["expert"])
+        y = d["expert"][m].astype(int)
+        for mode, s in [
+            ("Real-time", d["ff_real-time"][m]),
+            ("Retrospective", d["ff_retro"][m]),
+        ]:
+            for label_value, label in [(0, "Real"), (1, "Contaminated")]:
+                scores = np.clip(s[y == label_value], 0, 1)
+                rows.extend({
+                    "panel": panel,
+                    "mode": mode,
+                    "expert_label": label,
+                    "score": score,
+                } for score in scores)
+
+    dist = pd.DataFrame(rows)
+    dist["panel"] = pd.Categorical(dist["panel"], categories=["BMP", "CBC"], ordered=True)
+    dist["mode"] = pd.Categorical(
+        dist["mode"], categories=["Real-time", "Retrospective"], ordered=True
+    )
+    dist["expert_label"] = pd.Categorical(
+        dist["expert_label"], categories=["Real", "Contaminated"], ordered=True
+    )
+    return dist
+
+
+def plot_roc_pr(scored):
+    from plotnine import (
+        aes,
+        coord_cartesian,
+        facet_wrap,
+        geom_hline,
+        geom_path,
+        ggplot,
+        guide_legend,
+        guides,
+        labs,
+        scale_color_manual,
+        scale_linetype_manual,
+        scale_x_continuous,
+        scale_y_continuous,
+        theme,
+    )
+
+    _setup_plotnine()
+    curve_df, roc_baseline, pr_baseline = _curve_frames(scored)
+
+    p = (
+        ggplot(curve_df, aes("x", "y", color="model", linetype="model", group="model"))
+        + geom_path(size=0.85)
+        + geom_path(
+            data=roc_baseline,
+            mapping=aes("x", "y", group="panel"),
+            inherit_aes=False,
+            linetype="dotted",
+            color="#777777",
+            size=0.55,
+        )
+        + geom_hline(
+            data=pr_baseline,
+            mapping=aes(yintercept="prevalence"),
+            inherit_aes=False,
+            linetype="dotted",
+            color="#777777",
+            size=0.55,
+        )
+        + facet_wrap("facet", ncol=2)
+        + coord_cartesian(xlim=(0, 1), ylim=(0, 1.02))
+        + scale_x_continuous(breaks=[0, 0.25, 0.50, 0.75, 1.00])
+        + scale_y_continuous(breaks=[0, 0.25, 0.50, 0.75, 1.00])
+        + scale_color_manual(values=MODEL_COLORS)
+        + scale_linetype_manual(values=MODEL_LINETYPES)
+        + guides(
+            color=guide_legend(nrow=1, byrow=True),
+            linetype=guide_legend(nrow=1, byrow=True),
+        )
+        + labs(
+            x="FPR (ROC) / Recall (PR)",
+            y="Sensitivity (ROC) / Precision (PR)",
+            color="Model",
+            linetype="Model",
+        )
+        + theme(
+            figure_size=(7.2, 5.8),
+            legend_position="bottom",
+            legend_direction="horizontal",
+            legend_box="horizontal",
+            panel_spacing_x=0.08,
+            panel_spacing_y=0.03,
+        )
+    )
+    _save_plotnine(p, "validation_roc_pr", width=7.2, height=5.8)
 
 
 def plot_score_dist(scored):
-    plt = _setup_mpl()
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.3))
-    rng = np.random.default_rng(0)
-    for col, d in enumerate(scored):
-        ax = axes[col]
-        m = ~np.isnan(d["expert"])
-        y = d["expert"][m].astype(int)
-        for xpos, name, s in [(0, "FF realtime", d["ff_realtime"][m]),
-                              (1, "FF retro", d["ff_retro"][m])]:
-            for cls, color, off in [(0, "#4c72b0", -0.18), (1, "#c44e52", 0.18)]:
-                vals = np.clip(s[y == cls], 1e-4, 1)
-                jitter = rng.normal(0, 0.05, size=len(vals))
-                ax.scatter(np.full(len(vals), xpos + off) + jitter, vals,
-                           s=5, alpha=0.35, color=color, edgecolors="none")
-        ax.axhline(THRESHOLD, ls="--", color="0.4", lw=1)
-        ax.set_yscale("log")
-        ax.set_xticks([0, 1])
-        ax.set_xticklabels(["Realtime", "Retrospective"])
-        ax.set_ylim(8e-4, 1.3)
-        ax.set_ylabel("Contamination probability")
-        ax.set_title(f"{d['panel']}: score by expert label")
-    from matplotlib.lines import Line2D
-    handles = [Line2D([0], [0], marker="o", ls="", color="#4c72b0", label="Expert: real"),
-               Line2D([0], [0], marker="o", ls="", color="#c44e52", label="Expert: contaminated"),
-               Line2D([0], [0], ls="--", color="0.4", label=f"Threshold {THRESHOLD}")]
-    fig.legend(handles=handles, loc="upper center", ncol=3, frameon=False,
-               bbox_to_anchor=(0.5, 1.04))
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
-    fig.savefig(OUT / "validation_score_dist.pdf", bbox_inches="tight")
-    fig.savefig(OUT / "validation_score_dist.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    from plotnine import (
+        aes,
+        coord_cartesian,
+        facet_wrap,
+        geom_boxplot,
+        geom_hline,
+        geom_point,
+        geom_violin,
+        ggplot,
+        guide_legend,
+        guides,
+        labs,
+        position_dodge,
+        position_jitterdodge,
+        scale_color_manual,
+        scale_fill_manual,
+        scale_y_continuous,
+        theme,
+    )
+
+    _setup_plotnine()
+    dist = _score_distribution_frame(scored)
+    dodge = position_dodge(width=0.74)
+
+    p = (
+        ggplot(dist, aes("mode", "score"))
+        + geom_violin(
+            aes(fill="expert_label"),
+            position=dodge,
+            width=0.78,
+            alpha=0.28,
+            trim=False,
+            scale="width",
+            color="#555555",
+            size=0.25,
+        )
+        + geom_boxplot(
+            aes(fill="expert_label"),
+            position=dodge,
+            width=0.22,
+            outlier_shape=None,
+            alpha=0.82,
+            color="#333333",
+            size=0.25,
+        )
+        + geom_point(
+            aes(color="expert_label"),
+            position=position_jitterdodge(
+                jitter_width=0.2,
+                jitter_height=0,
+                dodge_width=0.74,
+                random_state=RNG_SEED,
+            ),
+            size=1.5,
+            alpha=0.5,
+            stroke=0,
+            show_legend=False,
+        )
+        + geom_hline(
+            yintercept=THRESHOLD,
+            linetype="dashed",
+            color="#4A4A4A",
+            size=0.55,
+        )
+        + facet_wrap("panel", nrow=1)
+        + scale_y_continuous(
+            breaks=[0, 0.25, 0.50, THRESHOLD, 1.0],
+            labels=["0.00", "0.25", "0.50", "0.75", "1.00"],
+        )
+        + coord_cartesian(ylim=(-0.02, 1.02))
+        + scale_fill_manual(values=EXPERT_COLORS)
+        + scale_color_manual(values=EXPERT_COLORS)
+        + guides(fill=guide_legend(nrow=1, byrow=True), color=False)
+        + labs(
+            x="Feature Set",
+            y="Contamination Probability",
+            fill="Expert Label",
+        )
+        + theme(
+            figure_size=(7.2, 3.8),
+            legend_position="top",
+            legend_direction="horizontal",
+            panel_spacing=0.08,
+        )
+    )
+    _save_plotnine(p, "validation_score_dist", width=7.2, height=3.8)
 
 
 # ---------------------------------------------------------------------------
@@ -340,14 +591,15 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
         r"\begin{table}[htbp]",
         r"\centering",
         r"\caption{Validation against expert review (gold standard). Discrimination "
-        r"(AUROC, AUPRC with 95\% bootstrap confidence intervals) and operating-point "
+        r"(auROC, auPRC with 95\% bootstrap confidence intervals) and operating-point "
         r"performance at the $p\ge0.75$ contamination threshold. Reference columns are "
         r"the probabilities shipped with the validation set.}",
         r"\label{tab:val-gold}",
         r"\small",
+        r"\resizebox{\linewidth}{!}{%",
         r"\begin{tabular}{llrrrrr}",
         r"\toprule",
-        r"Panel & Model & AUROC (95\% CI) & AUPRC (95\% CI) & Sens.\ (\%) & "
+        r"Panel & Model & auROC (95\% CI) & auPRC (95\% CI) & Sens.\ (\%) & "
         r"Spec.\ (\%) & PPV (\%) \\",
         r"\midrule",
     ]
@@ -367,6 +619,7 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
     p_cbc = int(summ[summ.panel == "CBC"].n_expert_contaminated.iloc[0])
     lines += [
         r"\end{tabular}",
+        r"}%",
         rf"\\[2pt]\footnotesize BMP: $n={n_bmp}$ expert-reviewed specimens "
         rf"({p_bmp} contaminated). CBC: $n={n_cbc}$ ({p_cbc} contaminated).",
         r"\end{table}",
@@ -376,14 +629,15 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
     lines += [
         r"\begin{table}[htbp]",
         r"\centering",
-        r"\caption{Agreement of the FluidFlagger realtime and retrospective models "
+        r"\caption{Agreement of the FluidFlagger real-time and retrospective models "
         r"with the retrospective reference probability (silver standard, binarised at "
         r"$0.75$) across the complete validation set.}",
         r"\label{tab:val-silver}",
         r"\small",
+        r"\resizebox{\linewidth}{!}{%",
         r"\begin{tabular}{llrrrr}",
         r"\toprule",
-        r"Panel & Model & $n$ & Reference-positive & AUROC & AUPRC \\",
+        r"Panel & Model & $n$ & Reference-positive & auROC & auPRC \\",
         r"\midrule",
     ]
     for panel in ["BMP", "CBC"]:
@@ -395,7 +649,7 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
                 f"& {r['auroc']:.3f} & {r['auprc']:.3f} \\\\"
             )
         lines.append(r"\midrule" if panel == "BMP" else r"\bottomrule")
-    lines += [r"\end{tabular}", r"\end{table}", r""]
+    lines += [r"\end{tabular}", r"}%", r"\end{table}", r""]
     (OUT / "validation_tables.tex").write_text("\n".join(lines))
 
 

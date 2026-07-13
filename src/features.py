@@ -9,6 +9,7 @@ Ports the logic from bmp_helpers.R and cbc_helpers.R:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import re
 
 import numpy as np
@@ -170,7 +171,7 @@ def map_cbc_wide_names(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def _parse_datetime(series: pd.Series) -> pd.Series:
-    """Parse timestamps supporting multiple formats."""
+    """Parse timestamps supporting multiple common formats, including out-of-bounds years."""
     formats = [
         "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
         "%m/%d/%Y %H:%M:%S", "%m/%d/%Y %H:%M",
@@ -190,6 +191,41 @@ def _parse_datetime(series: pd.Series) -> pd.Series:
             continue
     if result is pd.NaT:
         result = pd.to_datetime(series, format="mixed", errors="coerce", utc=True)
+
+    if result.notna().all():
+        return result
+
+    # Pandas datetime64 cannot represent years beyond 2262. Some anonymized
+    # fixtures and exports preserve relative timing while shifting years beyond
+    # that bound, so parse remaining values as Python datetime objects.
+    def _parse_one(value):
+        if pd.isna(value):
+            return pd.NaT
+        text = str(value).strip()
+        if not text:
+            return pd.NaT
+
+        iso_text = text[:-1] + "+00:00" if text.endswith("Z") else text
+        try:
+            dt = datetime.fromisoformat(iso_text)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except ValueError:
+            pass
+
+        for fmt in formats:
+            try:
+                return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+        return pd.NaT
+
+    fallback = series.apply(_parse_one)
+    if fallback.notna().any():
+        result = result.astype(object)
+        missing = pd.isna(result)
+        result.loc[missing] = fallback.loc[missing]
     return result
 
 
@@ -225,13 +261,19 @@ def _add_pre_post(df: pd.DataFrame, analytes: list[str], window_hours: float) ->
     """Add _prior and _post columns for the given analytes within window_hours."""
     df = df.copy().sort_values(["PATIENT_ID", "DRAWN_DT_TM"])
     cols = [c for c in analytes if c in df.columns]
+
+    def _hours(delta: pd.Series) -> pd.Series:
+        return delta.apply(
+            lambda value: value.total_seconds() / 3600 if pd.notna(value) else np.nan
+        )
+
     for col in cols:
         def _prior(group: pd.DataFrame, col=col) -> pd.Series:
-            hours_diff = group["DRAWN_DT_TM"].diff().dt.total_seconds() / 3600
+            hours_diff = _hours(group["DRAWN_DT_TM"].diff())
             return group[col].shift(1).where(hours_diff < window_hours, other=np.nan)
 
         def _post(group: pd.DataFrame, col=col) -> pd.Series:
-            hours_diff = (-group["DRAWN_DT_TM"].diff(-1)).dt.total_seconds() / 3600
+            hours_diff = _hours(-group["DRAWN_DT_TM"].diff(-1))
             return group[col].shift(-1).where(hours_diff < window_hours, other=np.nan)
 
         df[f"{col}_prior"] = df.groupby("PATIENT_ID", group_keys=False).apply(_prior)

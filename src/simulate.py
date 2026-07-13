@@ -45,13 +45,21 @@ def get_fluid_names() -> list[str]:
 # BMP simulation
 # ---------------------------------------------------------------------------
 
+def _min_contam_for_fluid(fluid_name: str) -> float:
+    """Minimum significant contamination fraction for a fluid.
+
+    Dextrose-containing fluids (D5*) perturb glucose so strongly that even small
+    admixtures are detectable, so they use a lower floor than other fluids.
+    """
+    return 0.05 if "D5" in fluid_name else 0.15
+
+
 def _make_mix_ratios_bmp(n: int, fluid_name: str, rng: np.random.Generator) -> np.ndarray:
     """
     Generate BMP mix ratios using Beta(1, 5) + minimum_significant_contamination.
     Mirrors R: rbeta(n, 1, 5) + min_contam, capped at 0.8.
     """
-    min_contam = 0.05 if "D5" in fluid_name else 0.15
-    ratios = rng.beta(1, 5, size=n) + min_contam
+    ratios = rng.beta(1, 5, size=n) + _min_contam_for_fluid(fluid_name)
     return np.minimum(ratios, 0.8)
 
 
@@ -140,12 +148,22 @@ def make_binary_training_data_bmp(
 def make_binary_training_data_cbc(
     template_df: pd.DataFrame,
     seed: int = 123,
+    fluids_df: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """
     Create 50/50 clean vs. contaminated CBC training data.
     CBC contamination = dilution: values * (1 - mix_ratio).
-    Mix ratios from Uniform(0.1, 0.8).
+
+    Mix ratios are drawn from the same distribution as the BMP simulation:
+    a contaminating fluid is sampled per contaminated row from the fluid table,
+    and its mix ratio is Beta(1, 5) + min_contam, capped at 0.8. IV fluids carry
+    no cellular components, so the fluid identity affects only the minimum
+    contamination floor (lower for dextrose-containing fluids); the dilution
+    itself is fluid-independent.
     """
+    if fluids_df is None:
+        fluids_df = get_fluid_concentrations()
+    fluid_names = fluids_df["fluid"].tolist()
     all_cols = (
         CBC_ANALYTES
         + [f"{c}_prior" for c in CBC_ANALYTES]
@@ -172,7 +190,9 @@ def make_binary_training_data_cbc(
     clean["target"] = 0
 
     contam = df.iloc[idx_contam].copy()
-    mix_ratios = rng.uniform(0.1, 0.8, size=n_contam)
+    sampled_fluids = rng.choice(fluid_names, size=n_contam)
+    min_contam = np.array([_min_contam_for_fluid(f) for f in sampled_fluids])
+    mix_ratios = np.minimum(rng.beta(1, 5, size=n_contam) + min_contam, 0.8)
     # Dilute only the current draw; prior and post values are left unmodified so
     # they reflect the patient's true physiology (a single contaminated draw).
     # Diluting prior/post by the same factor would preserve every ratio and
