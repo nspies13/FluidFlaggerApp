@@ -12,7 +12,7 @@ The confidential onboarding PDF is not copied into this repository. This crosswa
 | Non-root container user | Dockerfile creates and uses UID `1000`. |
 | Exactly one exposed port | Dockerfile exposes only `8080`. |
 | Target architecture is `linux/amd64` | Build and push scripts use `--platform linux/amd64`. |
-| OCI image manifest | Push script uses `--output type=image,...,oci-mediatypes=true`. |
-| Registry image naming | Push script uses `acr.prod.algosuite.navify.com/${TENANT_ALIAS}/fluidflagger-bmp:${TAG}`. |
+| OCI image manifest | Build helper creates a `linux/amd64` image and the standard Docker tag/push workflow publishes an OCI manifest (verified in the Navify registry). |
+| Registry image naming | Push script uses `acr.us.prod.algosuite.navify.com/${TENANT_ALIAS}/fluidflagger-bmp:${TAG}`. |
 | Deployment body includes image, version, port, health checks | `deployment.json.template` supplies these fields. |
 | Register algorithm after healthy deployment | `docs/algorithm_registration.md` records registration values. |

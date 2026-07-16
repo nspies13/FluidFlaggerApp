@@ -6,7 +6,7 @@ set -euo pipefail
 : "${TENANT_ALIAS:?Set TENANT_ALIAS}"
 
 TAG="${TAG:-1.0.0}"
-API_BASE="${API_BASE:-https://api.prod.algosuite.navify.com}"
+API_BASE="${API_BASE:-https://api.us.prod.algosuite.navify.com}"
 TMP_JSON="$(mktemp)"
 
 cd "$(dirname "$0")/.."

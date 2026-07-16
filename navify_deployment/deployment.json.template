@@ -1,6 +1,6 @@
 {
   "name": "fluidflagger-bmp-v1",
-  "image": "acr.prod.algosuite.navify.com/{tenantAlias}/fluidflagger-bmp:{tag}",
+  "image": "acr.us.prod.algosuite.navify.com/{tenantAlias}/fluidflagger-bmp:{tag}",
   "version": "{tag}",
   "containerPort": 8080,
   "healthChecks": {

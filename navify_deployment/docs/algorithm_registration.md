@@ -16,7 +16,7 @@ Use these values for the first BMP-only release:
 Execution can be tested through:
 
 ```text
-POST /tenants/{tenantId}/algorithms/fluidflagger-bmp/executions
+POST https://api.us.prod.algosuite.navify.com/tenants/{tenantId}/algorithms/fluidflagger-bmp/executions
 ```
 
 Use `examples/realtime_request.json` and `examples/retrospective_request.json` as initial payloads.

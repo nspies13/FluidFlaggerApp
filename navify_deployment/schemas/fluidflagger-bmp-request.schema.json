@@ -1,0 +1,98 @@
+{
+    "$schema": "https://json-schema.org/draft-04/schema",
+    "description": "The input data for the FluidFlagger BMP algorithm. Current and prior BMP values are required; post-specimen values are optional. The algorithm performs advanced validation and returns HTTP 400 for invalid requests.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "sodium": {
+            "type": "number"
+        },
+        "chloride": {
+            "type": "number"
+        },
+        "potassium_plas": {
+            "type": "number"
+        },
+        "co2_totl": {
+            "type": "number"
+        },
+        "bun": {
+            "type": "number"
+        },
+        "creatinine": {
+            "type": "number"
+        },
+        "calcium": {
+            "type": "number"
+        },
+        "glucose": {
+            "type": "number"
+        },
+        "sodium_prior": {
+            "type": "number"
+        },
+        "chloride_prior": {
+            "type": "number"
+        },
+        "potassium_plas_prior": {
+            "type": "number"
+        },
+        "co2_totl_prior": {
+            "type": "number"
+        },
+        "bun_prior": {
+            "type": "number"
+        },
+        "creatinine_prior": {
+            "type": "number"
+        },
+        "calcium_prior": {
+            "type": "number"
+        },
+        "glucose_prior": {
+            "type": "number"
+        },
+        "sodium_post": {
+            "type": "number"
+        },
+        "chloride_post": {
+            "type": "number"
+        },
+        "potassium_plas_post": {
+            "type": "number"
+        },
+        "co2_totl_post": {
+            "type": "number"
+        },
+        "bun_post": {
+            "type": "number"
+        },
+        "creatinine_post": {
+            "type": "number"
+        },
+        "calcium_post": {
+            "type": "number"
+        },
+        "glucose_post": {
+            "type": "number"
+        }
+    },
+    "required": [
+        "sodium",
+        "chloride",
+        "potassium_plas",
+        "co2_totl",
+        "bun",
+        "creatinine",
+        "calcium",
+        "glucose",
+        "sodium_prior",
+        "chloride_prior",
+        "potassium_plas_prior",
+        "co2_totl_prior",
+        "bun_prior",
+        "creatinine_prior",
+        "calcium_prior",
+        "glucose_prior"
+    ]
+}
