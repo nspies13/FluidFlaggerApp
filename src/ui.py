@@ -1,8 +1,8 @@
 """FluidFlagger's Gradio Blocks UI.
 
 The app provides Predict, Train, Review, Validate, and Self Test tabs.
-Validate consumes reviewed prediction exports and includes the former Explain
-(SHAP) tools in its lower section.
+Validate consumes reviewed prediction exports and places SHAP feature
+importance directly beneath its calibration chart.
 """
 
 from __future__ import annotations
@@ -919,8 +919,8 @@ def build_review_tab() -> None:
 # ---------------------------------------------------------------------------
 
 def build_validate_tab() -> None:
-    """Build interactive performance validation plus post-upload Explain tools."""
-    from .shap_tab import build_shap_section
+    """Build interactive performance validation with inline SHAP importance."""
+    from .shap_tab import build_validation_shap_plot
 
     with gr.Tab("✅  Validate"):
         with gr.Row():
@@ -1003,6 +1003,14 @@ def build_validate_tab() -> None:
                     apply_default_css=False,
                     js_on_load=_VALIDATION_DASHBOARD_JS,
                 )
+                # The SHAP result belongs to the validation narrative, directly
+                # after the dashboard's calibration chart. It reuses the file
+                # selected in the sidebar rather than requesting another CSV.
+                with gr.Group(
+                    visible=False,
+                    elem_classes="ff-validation-shap-panel",
+                ) as validation_shap_section:
+                    build_validation_shap_plot(validation_file)
                 validation_preview_info = gr.Markdown("", visible=False, elem_classes="ff-preview-info")
                 validation_preview = gr.DataFrame(
                     label="Data Preview (first 10 rows)",
@@ -1011,17 +1019,6 @@ def build_validate_tab() -> None:
                     visible=False,
                     elem_classes="ff-preview-table",
                 )
-
-        # Kept out of an accordion so the tools appear naturally beneath the
-        # validation report once a usable reviewed-predictions file is loaded.
-        with gr.Group(visible=False) as validate_explain_section:
-            gr.HTML('<hr class="ff-divider">')
-            gr.HTML('<p class="ff-section-title">🔍  Explain model behavior</p>', elem_classes="ff-th")
-            gr.HTML(
-                '<p class="ff-hint">Generate a SHAP summary plot for a FluidFlagger model. '
-                'The explainability tools are available after validation data has loaded.</p>'
-            )
-            build_shap_section()
 
         def _hide_validation_report_downloads():
             """Hide report actions when validation is unavailable."""
@@ -1180,6 +1177,7 @@ def build_validate_tab() -> None:
                 return (
                     "",
                     gr.update(value="", visible=False),
+                    gr.update(visible=False),
                     *_hide_validation_report_downloads(),
                 )
             try:
@@ -1195,18 +1193,21 @@ def build_validate_tab() -> None:
                     f"✓ Updated using {summary['included_rows']:,} evaluable rows "
                     f"({summary['excluded_rows']:,} excluded).",
                     gr.update(value=_validation_dashboard_html(payload), visible=True),
+                    gr.update(visible=True),
                     *_validation_report_download_updates(payload),
                 )
             except (ValidationDataError, ValueError) as exc:
                 return (
                     _err(f"⚠️ {exc}"),
                     gr.update(value="", visible=False),
+                    gr.update(visible=False),
                     *_hide_validation_report_downloads(),
                 )
             except Exception:
                 return (
                     _err(f"Could not update validation: {traceback.format_exc()}"),
                     gr.update(value="", visible=False),
+                    gr.update(visible=False),
                     *_hide_validation_report_downloads(),
                 )
 
@@ -1219,7 +1220,7 @@ def build_validate_tab() -> None:
             validation_preview_info,
             validation_dashboard,
             validate_empty_state,
-            validate_explain_section,
+            validation_shap_section,
             validation_report_downloads,
             validation_html_download,
             validation_pdf_download,
@@ -1234,6 +1235,7 @@ def build_validate_tab() -> None:
         _refresh_outputs = [
             validation_status,
             validation_dashboard,
+            validation_shap_section,
             validation_report_downloads,
             validation_html_download,
             validation_pdf_download,

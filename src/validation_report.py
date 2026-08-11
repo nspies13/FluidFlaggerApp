@@ -21,6 +21,8 @@ _GREEN = "#059669"
 _PURPLE = "#7c3aed"
 _SLATE = "#334155"
 _MUTED = "#64748b"
+_AXIS = "#cbd5e1"
+_TICK = "#94a3b8"
 
 
 def _percent(value: float | None) -> str:
@@ -62,6 +64,54 @@ def _metric_rows(payload: dict[str, Any]) -> list[tuple[str, str]]:
     ]
 
 
+def _style_chart_axes(ax: Any, title: str) -> None:
+    """Apply one uncluttered, report-friendly style to validation plots."""
+    ax.set_facecolor("#ffffff")
+    ax.grid(False)
+    ax.set_axisbelow(True)
+    ax.set_xticks([0, 0.25, 0.5, 0.75, 1])
+    ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
+    ax.tick_params(
+        axis="both",
+        which="major",
+        direction="out",
+        length=3.5,
+        width=0.85,
+        colors=_TICK,
+        labelcolor=_MUTED,
+        labelsize=8,
+    )
+    for spine_name in ("top", "right"):
+        ax.spines[spine_name].set_visible(False)
+    for spine_name in ("bottom", "left"):
+        spine = ax.spines[spine_name]
+        spine.set_color(_AXIS)
+        spine.set_linewidth(0.9)
+    ax.xaxis.label.set_color(_SLATE)
+    ax.yaxis.label.set_color(_SLATE)
+    ax.xaxis.label.set_size(9)
+    ax.yaxis.label.set_size(9)
+    ax.set_title(title, loc="left", color="#0f172a", fontsize=11.5, fontweight="bold", pad=10)
+
+
+def _style_chart_legend(ax: Any, location: str) -> None:
+    """Keep legends compact and legible without a heavy chart frame."""
+    legend = ax.legend(
+        loc=location,
+        frameon=True,
+        fancybox=True,
+        framealpha=0.96,
+        fontsize=7.6,
+        handlelength=1.8,
+        labelspacing=0.45,
+        borderpad=0.55,
+    )
+    legend_frame = legend.get_frame()
+    legend_frame.set_facecolor("#ffffff")
+    legend_frame.set_edgecolor("#e2e8f0")
+    legend_frame.set_linewidth(0.75)
+
+
 def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str, Path]:
     """Render static ROC, PR, and calibration plots for both export formats."""
     import matplotlib
@@ -85,14 +135,20 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
 
     # ROC with the threshold-specific 2 x 2 table in the lower-right plot area.
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    roc_fpr = [point["fpr"] for point in payload["roc"]]
+    roc_tpr = [point["tpr"] for point in payload["roc"]]
+    ax.fill_between(roc_fpr, roc_tpr, 0, color=_BLUE, alpha=0.07, zorder=0)
     ax.plot(
-        [point["fpr"] for point in payload["roc"]],
-        [point["tpr"] for point in payload["roc"]],
+        roc_fpr,
+        roc_tpr,
         color=_BLUE,
-        linewidth=2.8,
+        linewidth=2.65,
+        solid_capstyle="round",
+        solid_joinstyle="round",
+        zorder=2,
         label=f"ROC AUC {_decimal(auc['roc'])}",
     )
-    ax.plot([0, 1], [0, 1], color="#94a3b8", linestyle="--", linewidth=1.2)
+    ax.plot([0, 1], [0, 1], color=_TICK, linestyle=(0, (4, 4)), linewidth=1.15, zorder=1)
     ax.scatter(
         [1 - metrics["specificity"]],
         [metrics["sensitivity"]],
@@ -104,14 +160,13 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
         label=f"Threshold {_decimal(metrics['threshold'])}",
     )
     ax.set(
-        title="ROC curve",
         xlabel="False-positive rate",
         ylabel="Sensitivity",
         xlim=(0, 1),
         ylim=(0, 1),
     )
-    ax.grid(color="#e2e8f0", linewidth=0.7)
-    ax.legend(loc="upper left", frameon=False, fontsize=8)
+    _style_chart_axes(ax, "ROC curve")
+    _style_chart_legend(ax, "upper left")
     confusion_table = ax.table(
         cellText=[
             ["Real", _count(metrics["tn"]), _count(metrics["fp"])],
@@ -126,10 +181,17 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
     confusion_table.auto_set_font_size(False)
     confusion_table.set_fontsize(6.8)
     for (row, column), cell in confusion_table.get_celld().items():
-        cell.set_edgecolor("#cbd5e1")
-        if row == 0 or column == 0:
+        cell.set_edgecolor("#dbe5f1")
+        cell.set_linewidth(0.55)
+        if row == 0:
+            cell.set_facecolor("#eff6ff")
+            cell.set_text_props(weight="bold", color=_SLATE)
+        elif column == 0:
             cell.set_facecolor("#f8fafc")
             cell.set_text_props(weight="bold", color=_SLATE)
+        else:
+            cell.set_facecolor("#ffffff")
+            cell.set_text_props(color="#0f172a")
     ax.text(
         0.71,
         0.335,
@@ -145,18 +207,25 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
 
     # Precision-recall curve at the same operating point.
     fig, ax = plt.subplots(figsize=(6.8, 4.6))
+    pr_recall = [point["recall"] for point in payload["pr"]]
+    pr_precision = [point["precision"] for point in payload["pr"]]
+    ax.fill_between(pr_recall, pr_precision, summary["prevalence"], color=_GREEN, alpha=0.07, zorder=0)
     ax.plot(
-        [point["recall"] for point in payload["pr"]],
-        [point["precision"] for point in payload["pr"]],
+        pr_recall,
+        pr_precision,
         color=_GREEN,
-        linewidth=2.8,
+        linewidth=2.65,
+        solid_capstyle="round",
+        solid_joinstyle="round",
+        zorder=2,
         label=f"Average precision {_decimal(auc['pr'])}",
     )
     ax.axhline(
         summary["prevalence"],
-        color="#94a3b8",
-        linestyle="--",
-        linewidth=1.2,
+        color=_TICK,
+        linestyle=(0, (4, 4)),
+        linewidth=1.15,
+        zorder=1,
         label=f"Prevalence {_percent(summary['prevalence'])}",
     )
     if metrics["ppv"] is not None:
@@ -171,14 +240,13 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
             label=f"Threshold {_decimal(metrics['threshold'])}",
         )
     ax.set(
-        title="Precision-recall curve",
         xlabel="Recall (sensitivity)",
         ylabel="Precision (PPV)",
         xlim=(0, 1),
         ylim=(0, 1),
     )
-    ax.grid(color="#e2e8f0", linewidth=0.7)
-    ax.legend(loc="lower left", frameon=False, fontsize=8)
+    _style_chart_axes(ax, "Precision-recall curve")
+    _style_chart_legend(ax, "lower left")
     finish(fig, chart_paths["pr"])
 
     # Calibration, including an explicit ideal-reference line.
@@ -187,18 +255,34 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
     x_values = [point["mean_predicted"] for point in calibration]
     y_values = [point["fraction_positive"] for point in calibration]
     sizes = [max(34, min(140, 18 + point["count"] * 5)) for point in calibration]
-    ax.plot([0, 1], [0, 1], color="#94a3b8", linestyle="--", linewidth=1.2, label="Perfect calibration")
-    ax.plot(x_values, y_values, color=_PURPLE, linewidth=2.3, label="Model")
+    ax.plot(
+        [0, 1],
+        [0, 1],
+        color=_TICK,
+        linestyle=(0, (4, 4)),
+        linewidth=1.15,
+        label="Perfect calibration",
+        zorder=1,
+    )
+    ax.plot(
+        x_values,
+        y_values,
+        color=_PURPLE,
+        linewidth=2.5,
+        solid_capstyle="round",
+        solid_joinstyle="round",
+        label="Model",
+        zorder=2,
+    )
     ax.scatter(x_values, y_values, s=sizes, color=_PURPLE, edgecolor="white", linewidth=1.1, zorder=3)
     ax.set(
-        title="Calibration plot",
         xlabel="Mean predicted probability",
         ylabel="Observed contamination rate",
         xlim=(0, 1),
         ylim=(0, 1),
     )
-    ax.grid(color="#e2e8f0", linewidth=0.7)
-    ax.legend(loc="upper left", frameon=False, fontsize=8)
+    _style_chart_axes(ax, "Calibration plot")
+    _style_chart_legend(ax, "upper left")
     finish(fig, chart_paths["calibration"])
 
     return chart_paths

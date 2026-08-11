@@ -89,12 +89,18 @@
             x,
             y,
         );
-        const gridLines = [0, 0.25, 0.5, 0.75, 1].map((tick) => (
-            '<line class="ff-v-grid" x1="' + x(tick) + '" y1="' + top + '" x2="' + x(tick) + '" y2="' + (top + plotHeight) + '"></line>' +
-            '<line class="ff-v-grid" x1="' + left + '" y1="' + y(tick) + '" x2="' + (left + plotWidth) + '" y2="' + y(tick) + '"></line>' +
-            '<text class="ff-v-axis-text" x="' + x(tick) + '" y="' + (top + plotHeight + 24) + '" text-anchor="middle">' + tick.toFixed(2) + '</text>' +
-            '<text class="ff-v-axis-text" x="' + (left - 10) + '" y="' + (y(tick) + 4) + '" text-anchor="end">' + tick.toFixed(2) + '</text>'
-        )).join("");
+        // Keep the plots deliberately quiet: visible axes and ticks make the
+        // scale clear without a full grid competing with the curves.
+        const axisElements = [
+            '<line class="ff-v-axis-spine" x1="' + left + '" y1="' + (top + plotHeight) + '" x2="' + (left + plotWidth) + '" y2="' + (top + plotHeight) + '"></line>',
+            '<line class="ff-v-axis-spine" x1="' + left + '" y1="' + top + '" x2="' + left + '" y2="' + (top + plotHeight) + '"></line>',
+            [0, 0.25, 0.5, 0.75, 1].map((tick) => (
+                '<line class="ff-v-axis-tick" x1="' + x(tick) + '" y1="' + (top + plotHeight) + '" x2="' + x(tick) + '" y2="' + (top + plotHeight + 5) + '"></line>' +
+                '<line class="ff-v-axis-tick" x1="' + (left - 5) + '" y1="' + y(tick) + '" x2="' + left + '" y2="' + y(tick) + '"></line>' +
+                '<text class="ff-v-axis-text" x="' + x(tick) + '" y="' + (top + plotHeight + 24) + '" text-anchor="middle">' + tick.toFixed(2) + '</text>' +
+                '<text class="ff-v-axis-text" x="' + (left - 10) + '" y="' + (y(tick) + 4) + '" text-anchor="end">' + tick.toFixed(2) + '</text>'
+            )).join(""),
+        ].join("");
         const calibrationDots = data.calibration.map((point) => (
             '<circle class="ff-v-calibration-point" cx="' + x(point.mean_predicted) + '" cy="' + y(point.fraction_positive) +
             '" r="' + Math.max(4, Math.min(10, 3 + Math.sqrt(point.count))) + '">' +
@@ -143,7 +149,7 @@
             '<div class="ff-v-roc-plot">',
             '<svg class="ff-v-chart ff-v-roc-svg" viewBox="0 0 ', viewWidth, ' ', viewHeight,
             '" role="img" aria-label="Interactive ROC curve. Drag the marker to select a threshold.">',
-            gridLines,
+            axisElements,
             '<line class="ff-v-reference-line" x1="', x(0), '" y1="', y(0), '" x2="', x(1), '" y2="', y(1), '"></line>',
             '<path class="ff-v-roc-line" d="', rocPath, '"></path>',
             '<circle class="ff-v-roc-marker" data-roc-marker r="7"></circle>',
@@ -169,12 +175,12 @@
             '</article>',
             '<article class="ff-v-chart-card">',
             '<div class="ff-v-chart-heading">',
-            '<div><h3>Precision–recall curve</h3><p>Recall vs. positive predictive value</p></div>',
+            '<div><h3>Precision-recall curve</h3><p>Recall vs. positive predictive value</p></div>',
             '<span class="ff-v-auc-badge">PR AUC (AP) ', number(data.auc.pr), '</span>',
             '</div>',
             '<svg class="ff-v-chart" viewBox="0 0 ', viewWidth, ' ', viewHeight,
             '" role="img" aria-label="Precision-recall curve">',
-            gridLines,
+            axisElements,
             '<line class="ff-v-reference-line" x1="', x(0), '" y1="', y(summary.prevalence),
             '" x2="', x(1), '" y2="', y(summary.prevalence), '"></line>',
             '<path class="ff-v-pr-line" d="', prPath, '"></path>',
@@ -194,7 +200,7 @@
             '</div>',
             '<svg class="ff-v-chart" viewBox="0 0 ', viewWidth, ' ', viewHeight,
             '" role="img" aria-label="Calibration plot">',
-            gridLines,
+            axisElements,
             '<line class="ff-v-reference-line" x1="', x(0), '" y1="', y(0), '" x2="', x(1), '" y2="', y(1), '"></line>',
             data.calibration.length ? '<path class="ff-v-calibration-line" d="' + calibrationPath + '"></path>' : "",
             calibrationDots,

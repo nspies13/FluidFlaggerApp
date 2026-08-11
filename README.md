@@ -25,8 +25,8 @@ The Gradio interface has five tabs:
 - **Review** — step through predictions and add human labels for QA
 - **Validate** — upload reviewed predictions to explore Sens, Spec, PPV, NPV,
   F1, ROC/PR AUCs, an interactive threshold-dependent 2×2 table, and calibration;
-  download a formatted HTML or PDF performance report; its lower section includes
-  the model Explain (SHAP) tools
+  download a formatted HTML or PDF performance report; generate a model-specific
+  SHAP feature-importance plot directly below the calibration chart
 - **Self Test** — practice identifying contaminated specimens with simulated cases
 
 ## Panels

@@ -112,7 +112,7 @@ def _compute_shap_png(
     try:
         if model_label == _UPLOAD_SENTINEL:
             if not custom_model_path:
-                return None, "⚠️ Please upload a custom .joblib file."
+                return None, None, "⚠️ Please upload a custom .joblib file."
             model_dict = load_from_file(custom_model_path)
         else:
             key = _LABEL_TO_KEY[model_label]
@@ -130,7 +130,7 @@ def _compute_shap_png(
 
     # -- Load & preprocess data ----------------------------------------------
     try:
-        raw_df = pd.read_csv(data_path)
+        raw_df = pd.read_csv(data_path, sep=None, engine="python")
     except Exception as e:
         return None, None, f"⚠️ Could not read dataset: {e}"
 
@@ -139,16 +139,33 @@ def _compute_shap_png(
     except Exception as e:
         return None, None, f"⚠️ Preprocessing failed: {e}"
 
-    # -- Drop rows with any missing input values before transformation -------
-    n_raw = len(df)
-    df = df.dropna()
-    n_dropped = n_raw - len(df)
+    # -- Retain rows complete for this model's predictors -------------------
+    # A Review export also has probability, metadata, and label columns. Some
+    # of those can be empty without preventing a model explanation, so do not
+    # use a blanket ``df.dropna()`` here.
+    try:
+        transformer = pipeline["features"]
+        analytes = list(getattr(transformer, "_analytes", []))
+        mode = getattr(transformer, "mode", "retrospective")
+        required_columns = analytes + [f"{name}_prior" for name in analytes]
+        if mode == "retrospective":
+            required_columns += [f"{name}_post" for name in analytes]
+        missing_columns = [name for name in required_columns if name not in df.columns]
+        if missing_columns:
+            preview = ", ".join(missing_columns[:4])
+            suffix = ", ..." if len(missing_columns) > 4 else ""
+            return None, None, f"⚠️ This file is missing model input columns: {preview}{suffix}"
+        n_raw = len(df)
+        df = df.dropna(subset=required_columns)
+        n_dropped = n_raw - len(df)
+    except Exception as exc:
+        return None, None, f"⚠️ Could not prepare model inputs: {exc}"
+
     if len(df) == 0:
         return None, None, "⚠️ No complete rows remain after dropping rows with missing values."
 
     # -- Transform features --------------------------------------------------
     try:
-        transformer = pipeline["features"]
         X = transformer.transform(df)
         feature_names = list(transformer.get_feature_names_out())
     except Exception as e:
@@ -217,6 +234,7 @@ def _compute_shap_png(
         ax = fig.axes[0]
         ax.set_xlabel("SHAP Value (Impact on Model Output)", fontsize=11)
         ax.tick_params(labelsize=10)
+        ax.grid(False)
         ax.set_title(title, fontsize=12, fontweight="bold", fontstyle="italic", pad=14)
         fig.tight_layout()
 
@@ -358,6 +376,131 @@ def build_shap_section() -> None:
         _generate,
         inputs=[model_dropdown, custom_model_upload, data_upload],
         outputs=_outputs,
+    )
+
+
+def build_validation_shap_plot(validation_file: gr.File) -> None:
+    """Build Validate's inline SHAP controls and plot.
+
+    The reviewed-predictions upload already contains the model inputs needed
+    for explanation, so this compact variant deliberately reuses that file
+    instead of asking the user to upload a second dataset.  It is intended to
+    sit immediately below the calibration chart in the Validate results flow.
+    """
+    with gr.Row(elem_classes="ff-validation-shap-row"):
+        with gr.Column(scale=1, min_width=220):
+            model_dropdown = gr.Dropdown(
+                choices=_DROPDOWN_LABELS + [_UPLOAD_SENTINEL],
+                value=_DROPDOWN_LABELS[0],
+                label="Model to explain",
+                interactive=True,
+            )
+            custom_model_upload = gr.File(
+                label="Upload .joblib model",
+                file_types=[".joblib"],
+                visible=False,
+            )
+            run_btn = gr.Button(
+                "📊  Generate SHAP Plot",
+                variant="secondary",
+                size="lg",
+                interactive=False,
+            )
+
+        with gr.Column(scale=3):
+            empty_state = gr.HTML(
+                '<div class="ff-empty-state">'
+                '<div style="font-size:1.5rem;margin-bottom:8px">✨</div>'
+                '<p>Select the model used for this validation file, then generate '
+                'a <strong>SHAP feature-importance plot</strong>.</p>'
+                '</div>',
+                visible=True,
+            )
+            status_msg = gr.Markdown("", elem_classes="ff-status")
+            plot_image = gr.Image(
+                label="SHAP Feature Importance",
+                visible=False,
+                interactive=False,
+                elem_classes="ff-shap-plot",
+            )
+            download_btn = gr.DownloadButton(
+                "⬇  Download SHAP Plot (SVG)",
+                visible=False,
+                variant="secondary",
+                elem_id="validation-shap-download-btn",
+            )
+
+    def _show_custom_model(label):
+        return gr.update(visible=label == _UPLOAD_SENTINEL)
+
+    def _toggle_run(label, custom_f, validation_f):
+        if not validation_f:
+            return gr.update(interactive=False)
+        if label == _UPLOAD_SENTINEL and not custom_f:
+            return gr.update(interactive=False)
+        return gr.update(interactive=True)
+
+    def _clear_plot():
+        """Avoid showing an explanation generated for an older file/model."""
+        return (
+            "",
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=True),
+        )
+
+    model_dropdown.change(
+        _show_custom_model,
+        inputs=model_dropdown,
+        outputs=custom_model_upload,
+    )
+    for trigger in (model_dropdown, custom_model_upload, validation_file):
+        trigger.change(
+            _toggle_run,
+            inputs=[model_dropdown, custom_model_upload, validation_file],
+            outputs=run_btn,
+        )
+
+    def _generate(label, custom_f, validation_f):
+        if not validation_f:
+            return (
+                "⚠️ Upload and validate a reviewed predictions file first.",
+                gr.update(visible=False),
+                gr.update(visible=False),
+                gr.update(visible=True),
+            )
+        png_path, svg_path, msg = _compute_shap_png(label, custom_f, validation_f)
+        if png_path is None:
+            return (
+                msg,
+                gr.update(visible=False),
+                gr.update(visible=False),
+                gr.update(visible=True),
+            )
+        return (
+            msg,
+            gr.update(value=png_path, visible=True),
+            gr.update(value=svg_path, visible=True),
+            gr.update(visible=False),
+        )
+
+    outputs = [status_msg, plot_image, download_btn, empty_state]
+    for trigger in (model_dropdown, custom_model_upload, validation_file):
+        trigger.change(_clear_plot, outputs=outputs)
+
+    run_btn.click(
+        lambda: (
+            "⏳ Computing SHAP values - this may take a moment...",
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+        ),
+        outputs=outputs,
+        queue=False,
+    ).then(
+        _generate,
+        inputs=[model_dropdown, custom_model_upload, validation_file],
+        outputs=outputs,
     )
 
 
