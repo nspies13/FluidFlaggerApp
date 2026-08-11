@@ -919,7 +919,7 @@ def build_review_tab() -> None:
 # ---------------------------------------------------------------------------
 
 def build_validate_tab() -> None:
-    """Build interactive performance validation plus the embedded Explain tools."""
+    """Build interactive performance validation plus post-upload Explain tools."""
     from .shap_tab import build_shap_section
 
     with gr.Tab("✅  Validate"):
@@ -992,6 +992,17 @@ def build_validate_tab() -> None:
                     elem_classes="ff-preview-table",
                 )
 
+        # Kept out of an accordion so the tools appear naturally beneath the
+        # validation report once a usable reviewed-predictions file is loaded.
+        with gr.Group(visible=False) as validate_explain_section:
+            gr.HTML('<hr class="ff-divider">')
+            gr.HTML('<p class="ff-section-title">🔍  Explain model behavior</p>', elem_classes="ff-th")
+            gr.HTML(
+                '<p class="ff-hint">Generate a SHAP summary plot for a FluidFlagger model. '
+                'The explainability tools are available after validation data has loaded.</p>'
+            )
+            build_shap_section()
+
         def _load_validation_file(file_path, policy):
             """Inspect the file, choose sensible columns, and generate the first report."""
             if not file_path:
@@ -1004,6 +1015,7 @@ def build_validate_tab() -> None:
                     gr.update(value="", visible=False),
                     gr.update(value="", visible=False),
                     gr.update(visible=True),
+                    gr.update(visible=False),
                 )
 
             try:
@@ -1045,6 +1057,7 @@ def build_validate_tab() -> None:
                     gr.update(value=f"**{len(df):,} rows × {len(df.columns)} columns**", visible=True),
                     gr.update(value=_validation_dashboard_html(payload), visible=True),
                     gr.update(visible=False),
+                    gr.update(visible=True),
                 )
             except (ValidationDataError, ValueError) as exc:
                 return (
@@ -1056,6 +1069,7 @@ def build_validate_tab() -> None:
                     gr.update(value="", visible=False),
                     gr.update(value="", visible=False),
                     gr.update(visible=True),
+                    gr.update(visible=False),
                 )
             except Exception:
                 return (
@@ -1067,6 +1081,7 @@ def build_validate_tab() -> None:
                     gr.update(value="", visible=False),
                     gr.update(value="", visible=False),
                     gr.update(visible=True),
+                    gr.update(visible=False),
                 )
 
         def _refresh_validation(file_path, selected_label, selected_score, policy):
@@ -1103,6 +1118,7 @@ def build_validate_tab() -> None:
             validation_preview_info,
             validation_dashboard,
             validate_empty_state,
+            validate_explain_section,
         ]
         validation_file.change(
             _load_validation_file,
@@ -1118,14 +1134,6 @@ def build_validate_tab() -> None:
                 inputs=_refresh_inputs,
                 outputs=_refresh_outputs,
             )
-
-        gr.HTML('<hr class="ff-divider">')
-        with gr.Accordion("🔍  Explain model behavior", open=False, elem_classes="ff-explain-accordion"):
-            gr.HTML(
-                '<p class="ff-hint">Generate a SHAP summary plot for a FluidFlagger model. '
-                'This replaces the former standalone Explain tab.</p>'
-            )
-            build_shap_section()
 
 # ---------------------------------------------------------------------------
 # Tab 5 – Self Test

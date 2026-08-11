@@ -707,6 +707,9 @@
     cursor: crosshair;
     touch-action: none;
 }
+.ff-v-roc-plot {
+    position: relative;
+}
 .ff-v-calibration-point {
     fill: #8b5cf6;
     fill-opacity: 0.86;
@@ -715,8 +718,9 @@
 }
 .ff-v-inset {
     position: absolute;
-    top: 62px;
-    right: 24px;
+    /* The plot spans x=58..596 and y=34..340 in the 620×390 SVG viewBox. */
+    right: 3.9%;
+    bottom: 12.8%;
     min-width: 145px;
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid #cbd5e1;
@@ -839,7 +843,7 @@
     .ff-v-chart-card { padding: 11px; }
     .ff-v-chart-heading { display: block; }
     .ff-v-auc-badge { display: inline-block; margin-top: 7px; }
-    .ff-v-inset { position: static; width: max-content; margin: -6px auto 8px; }
+    .ff-v-inset { min-width: 132px; }
     .ff-v-threshold-control { grid-template-columns: 1fr; gap: 4px; }
     .ff-v-legend { margin-top: 7px; }
 }
