@@ -77,7 +77,6 @@
 
 /* ── Labelling buttons ─────────────────────────────────────── */
 .btn-real button   { background: #16a34a !important; color: #ffffff !important; border: 1.5px solid #15803d !important; font-weight: 600 !important; box-shadow: 0 2px 6px rgba(22,163,74,0.30) !important; }
-.btn-equiv button  { background: #ca8a04 !important; color: #ffffff !important; border: 1.5px solid #a16207 !important; font-weight: 600 !important; box-shadow: 0 2px 6px rgba(202,138,4,0.30) !important; }
 .btn-contam button { background: #dc2626 !important; color: #ffffff !important; border: 1.5px solid #b91c1c !important; font-weight: 600 !important; box-shadow: 0 2px 6px rgba(220,38,38,0.30) !important; }
 
 /* ── Nav buttons ───────────────────────────────────────────── */
@@ -229,11 +228,10 @@
 }
 
 /* ── Review: label buttons — larger + equal width ──────────── */
-.btn-real button, .btn-equiv button, .btn-contam button {
+.btn-real button, .btn-contam button {
     padding: 12px 8px !important;
     font-size: 0.9375rem !important;
     width: 100% !important;
-    fill: #fecaca
 }
 
 /* ── Self-test guess buttons: larger ───────────────────────── */
@@ -459,7 +457,6 @@
 
 .dark .btn-nav button { border-color: #475569 !important; background: #1e293b !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
 .dark .btn-real button   { background: #052e16 !important; color: #4ade80 !important; border-color: #4ade80 !important; }
-.dark .btn-equiv button  { background: #1c1404 !important; color: #fbbf24 !important; border-color: #fbbf24 !important; }
 .dark .btn-contam button { background: #1c0505 !important; color: #f87171 !important; border-color: #f87171 !important; }
 
 .dark .ff-top-radio > .wrap > legend,
@@ -541,118 +538,177 @@
 .dark .ff-score-bad  .ff-score-fill { background: #f87171; }
 
 /* ── Validate dashboard ───────────────────────────────────── */
+.ff-validation-layout {
+    align-items: flex-start !important;
+    gap: 24px !important;
+}
+.ff-validation-sidebar,
+.ff-validation-main { min-width: 0; }
+.ff-validation-sidebar {
+    position: sticky;
+    top: 16px;
+    padding: 16px !important;
+    background: linear-gradient(160deg, #f8fbff 0%, #ffffff 74%);
+    border: 1px solid #dbe5f1;
+    border-radius: 16px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.045);
+}
+.ff-validation-main { padding-bottom: 4px; }
+.ff-validation-empty-state {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 310px;
+    padding: 44px 30px !important;
+    background: linear-gradient(145deg, #f8fbff 0%, #ffffff 72%);
+    border: 1px dashed #bfdbfe;
+    border-radius: 16px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.035);
+}
+.ff-validation-empty-icon {
+    margin-bottom: 10px;
+    font-size: 2rem;
+    line-height: 1;
+}
+.ff-validation-empty-state p {
+    color: #475569 !important;
+    font-size: 0.95rem !important;
+}
+.ff-validation-empty-state span {
+    display: block;
+    max-width: 390px;
+    margin: 8px auto 0;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
 .ff-validation-dashboard-wrap {
     width: 100%;
-    margin-top: 4px;
+    margin-top: 8px;
 }
 .ff-validation-results {
     width: 100%;
     color: #1e293b;
     animation: ff-fade-in 0.28s ease-out both;
+    padding: 2px 0 4px;
 }
 .ff-v-result-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
-    margin: 8px 2px 14px;
+    gap: 20px;
+    margin: 4px 0 18px;
+    padding: 17px 18px;
+    background: linear-gradient(135deg, #f7fbff 0%, #ffffff 68%);
+    border: 1px solid #dbeafe;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.045);
 }
 .ff-v-result-header h2 {
-    margin: 3px 0 3px !important;
+    margin: 4px 0 4px !important;
     color: #1e293b !important;
-    font-size: 1.35rem !important;
-    letter-spacing: -0.02em;
+    font-size: 1.42rem !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.028em;
 }
 .ff-v-subtitle {
     margin: 0 !important;
     color: #64748b !important;
-    font-size: 0.8125rem !important;
+    font-size: 0.8rem !important;
+    line-height: 1.5 !important;
 }
 .ff-v-cohort-summary {
     flex: none;
     color: #475569;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 9px;
-    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid #dbe5f1;
+    border-radius: 11px;
+    padding: 9px 11px;
     font-size: 0.75rem;
     line-height: 1.45;
     text-align: right;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
 }
 .ff-v-cohort-summary strong {
     color: #1d4ed8;
-    font-size: 0.95rem;
+    font-size: 1rem;
 }
 .ff-v-metrics {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 12px;
+    margin-bottom: 18px;
 }
 .ff-v-metric-card {
+    position: relative;
     background: #ffffff;
     border: 1px solid #dbe5f1;
-    border-radius: 12px;
-    padding: 13px 14px 12px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    border-radius: 14px;
+    padding: 14px 15px 13px;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.045);
     border-top: 3px solid #2563eb;
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 .ff-v-metric-label {
     color: #64748b;
-    font-size: 0.68rem;
+    font-size: 0.67rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 .ff-v-metric-value {
     color: #0f172a;
-    font-size: 1.45rem;
+    font-size: 1.5rem;
     font-weight: 750;
     letter-spacing: -0.04em;
     font-variant-numeric: tabular-nums;
-    margin-top: 4px;
+    line-height: 1.05;
+    margin-top: 5px;
 }
 .ff-v-chart-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: 18px;
 }
 .ff-v-chart-card {
     position: relative;
     min-width: 0;
-    background: #ffffff;
+    background: linear-gradient(145deg, #ffffff 0%, #fbfdff 100%);
     border: 1px solid #dbe5f1;
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.055);
 }
 .ff-v-chart-heading {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 3px;
+    margin-bottom: 10px;
 }
 .ff-v-chart-heading h3 {
     color: #1e293b !important;
-    font-size: 0.97rem !important;
-    font-weight: 700 !important;
-    margin: 0 0 2px !important;
+    font-size: 1rem !important;
+    font-weight: 725 !important;
+    letter-spacing: -0.012em;
+    margin: 0 0 3px !important;
 }
 .ff-v-chart-heading p {
     color: #64748b !important;
-    font-size: 0.72rem !important;
+    font-size: 0.71rem !important;
+    line-height: 1.45 !important;
     margin: 0 !important;
 }
 .ff-v-auc-badge {
     flex: none;
-    background: #eff6ff;
+    background: #eef6ff;
     border: 1px solid #bfdbfe;
     border-radius: 999px;
     color: #1d4ed8;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    padding: 5px 8px;
+    letter-spacing: 0.01em;
+    padding: 5px 9px;
     white-space: nowrap;
 }
 .ff-v-chart {
@@ -660,10 +716,12 @@
     width: 100%;
     height: auto;
     overflow: visible;
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.78), rgba(255, 255, 255, 0));
+    border-radius: 11px;
 }
 .ff-v-axis-spine {
-    stroke: #cbd5e1;
-    stroke-width: 1.25;
+    stroke: #c7d2df;
+    stroke-width: 1.15;
     shape-rendering: crispEdges;
 }
 .ff-v-axis-tick {
@@ -674,20 +732,20 @@
 .ff-v-axis-text {
     fill: #64748b;
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 500;
 }
 .ff-v-axis-title {
     fill: #475569;
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
 }
 .ff-v-reference-line {
     stroke: #94a3b8;
-    stroke-width: 1.5;
-    stroke-dasharray: 4 5;
-    opacity: 0.9;
+    stroke-width: 1.35;
+    stroke-dasharray: 4 6;
+    opacity: 0.78;
 }
 .ff-v-roc-line,
 .ff-v-pr-line,
@@ -696,6 +754,8 @@
     stroke-linecap: round;
     stroke-linejoin: round;
 }
+.ff-v-roc-area { fill: #2563eb; fill-opacity: 0.08; }
+.ff-v-pr-area { fill: #059669; fill-opacity: 0.075; }
 .ff-v-roc-line { stroke: #2563eb; stroke-width: 3.25; }
 .ff-v-pr-line { stroke: #059669; stroke-width: 3.25; }
 .ff-v-calibration-line { stroke: #7c3aed; stroke-width: 2.75; }
@@ -714,7 +774,9 @@
 .ff-v-roc-svg {
     cursor: crosshair;
     touch-action: none;
+    transition: background-color 160ms ease;
 }
+.ff-v-roc-svg:hover { background-color: rgba(239, 246, 255, 0.82); }
 .ff-v-roc-plot {
     position: relative;
 }
@@ -730,18 +792,19 @@
     right: 3.9%;
     bottom: 12.8%;
     min-width: 145px;
-    background: rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.94);
     border: 1px solid #cbd5e1;
-    border-radius: 9px;
-    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.13);
+    border-radius: 10px;
+    box-shadow: 0 5px 16px rgba(15, 23, 42, 0.15);
+    backdrop-filter: blur(5px);
     overflow: hidden;
     /* The inset must not block threshold dragging on the ROC underneath. */
     pointer-events: none;
 }
 .ff-v-inset-title {
-    padding: 6px 8px;
-    color: #334155;
-    background: #f8fafc;
+    padding: 6px 8px 5px;
+    color: #1e3a8a;
+    background: #eff6ff;
     border-bottom: 1px solid #e2e8f0;
     font-size: 0.64rem;
     font-weight: 700;
@@ -773,7 +836,11 @@
     grid-template-columns: minmax(110px, 0.45fr) minmax(130px, 1fr);
     align-items: end;
     gap: 12px;
-    margin: -2px 2px 0;
+    margin: 10px 0 0;
+    padding: 9px 11px 7px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
 }
 .ff-v-threshold-control label {
     display: block;
@@ -796,12 +863,13 @@
 .ff-v-threshold-control input {
     width: 100%;
     accent-color: #2563eb;
-    margin-bottom: 5px;
+    margin: 0 0 5px;
 }
 .ff-v-drag-note {
     color: #64748b !important;
     font-size: 0.68rem !important;
-    margin: 8px 2px 0 !important;
+    line-height: 1.45 !important;
+    margin: 9px 2px 0 !important;
 }
 .ff-v-calibration-card {
     grid-column: 1 / -1;
@@ -813,6 +881,10 @@
     color: #64748b;
     font-size: 0.68rem;
     white-space: nowrap;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 5px 8px;
 }
 .ff-v-legend i {
     width: 14px;
@@ -835,32 +907,110 @@
     font-size: 0.875rem;
 }
 .ff-validation-shap-panel {
-    margin-top: 10px;
+    margin-top: 18px !important;
+    padding: 18px !important;
+    background: linear-gradient(135deg, #fcfbff 0%, #ffffff 64%);
+    border: 1px solid #ddd6fe !important;
+    border-top: 3px solid #8b5cf6 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 5px 18px rgba(76, 29, 149, 0.055);
 }
 .ff-validation-shap-row {
     margin-top: 0 !important;
     align-items: flex-start;
+    gap: 18px !important;
+}
+.ff-validation-shap-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 14px;
+}
+.ff-validation-shap-header h3 {
+    color: #312e81 !important;
+    font-size: 1rem !important;
+    font-weight: 725 !important;
+    letter-spacing: -0.012em;
+    margin: 0 0 3px !important;
+}
+.ff-validation-shap-header p {
+    color: #64748b !important;
+    font-size: 0.76rem !important;
+    line-height: 1.45 !important;
+    margin: 0 !important;
+}
+.ff-validation-shap-toolbar {
+    min-width: 0;
+}
+.ff-validation-shap-output {
+    min-width: 0;
+}
+.ff-validation-shap-panel .ff-empty-state {
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 36px 24px;
+    background: #faf7ff;
+    border: 1px dashed #c4b5fd;
+    border-radius: 12px;
+}
+.ff-validation-shap-panel .ff-empty-state p { color: #6b7280 !important; }
+.ff-validation-shap-panel .ff-shap-plot {
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+@media (hover: hover) {
+    .ff-v-metric-card:hover {
+        border-color: #bfdbfe;
+        box-shadow: 0 7px 18px rgba(15, 23, 42, 0.085);
+        transform: translateY(-2px);
+    }
 }
 
 @media (max-width: 880px) {
+    .ff-validation-sidebar { position: static; }
     .ff-v-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .ff-v-chart-grid { grid-template-columns: 1fr; }
     .ff-v-calibration-card { grid-column: auto; }
+    .ff-validation-shap-panel { padding: 15px !important; }
+    .ff-validation-shap-row { gap: 14px !important; }
 }
 @media (max-width: 620px) {
-    .ff-v-result-header { display: block; }
+    .ff-validation-layout { gap: 16px !important; }
+    .ff-validation-sidebar { padding: 13px !important; border-radius: 13px; }
+    .ff-validation-empty-state { min-height: 250px; padding: 32px 18px !important; }
+    .ff-v-result-header { display: block; padding: 15px; }
     .ff-v-cohort-summary { display: inline-block; margin-top: 9px; text-align: left; }
     .ff-v-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ff-v-metric-card:last-child { grid-column: 1 / -1; }
-    .ff-v-chart-card { padding: 11px; }
+    .ff-v-chart-card { padding: 13px; }
     .ff-v-chart-heading { display: block; }
     .ff-v-auc-badge { display: inline-block; margin-top: 7px; }
     .ff-v-inset { min-width: 132px; }
     .ff-v-threshold-control { grid-template-columns: 1fr; gap: 4px; }
     .ff-v-legend { margin-top: 7px; }
+    .ff-validation-shap-panel { margin-top: 14px !important; padding: 13px !important; }
+    .ff-validation-shap-header { display: block; margin-bottom: 11px; }
+    .ff-validation-shap-panel .ff-empty-state { padding: 28px 18px; }
 }
 
 .dark .ff-validation-results { color: #e2e8f0; }
+.dark .ff-validation-sidebar,
+.dark .ff-validation-empty-state {
+    background: linear-gradient(145deg, #172033 0%, #1e293b 70%);
+    border-color: #334155;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
+}
+.dark .ff-validation-empty-state p { color: #cbd5e1 !important; }
+.dark .ff-validation-empty-state span { color: #94a3b8; }
+.dark .ff-v-result-header {
+    background: linear-gradient(135deg, #172033 0%, #1e293b 70%);
+    border-color: #334155;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+}
 .dark .ff-v-result-header h2,
 .dark .ff-v-chart-heading h3,
 .dark .ff-v-metric-value { color: #f1f5f9 !important; }
@@ -874,6 +1024,12 @@
     background: #1e293b;
     border-color: #334155;
 }
+.dark .ff-v-metric-card,
+.dark .ff-v-chart-card {
+    background: linear-gradient(145deg, #1e293b 0%, #182334 100%);
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
+}
+.dark .ff-v-chart { background: linear-gradient(180deg, rgba(15, 23, 42, 0.64), rgba(15, 23, 42, 0)); }
 .dark .ff-v-cohort-summary { color: #cbd5e1; }
 .dark .ff-v-cohort-summary strong,
 .dark .ff-v-threshold-control output { color: #60a5fa; }
@@ -888,8 +1044,29 @@
 .dark .ff-v-axis-spine,
 .dark .ff-v-axis-tick { stroke: #475569; }
 .dark .ff-v-reference-line { stroke: #64748b; }
+.dark .ff-v-roc-area { fill: #3b82f6; fill-opacity: 0.13; }
+.dark .ff-v-pr-area { fill: #34d399; fill-opacity: 0.12; }
 .dark .ff-v-auc-badge { background: #172554; border-color: #1e40af; color: #93c5fd; }
 .dark .ff-v-inset-title,
 .dark .ff-v-inset th { background: #0f172a; color: #94a3b8; border-color: #334155; }
 .dark .ff-v-inset td { border-color: #334155; }
+.dark .ff-v-inset-title { color: #93c5fd; }
+.dark .ff-v-threshold-control { background: #0f172a; border-color: #334155; }
+.dark .ff-v-legend { background: #0f172a; border-color: #334155; }
 .dark .ff-v-client-error { background: #1c0505; border-color: #991b1b; color: #fca5a5; }
+.dark .ff-validation-shap-panel {
+    background: linear-gradient(135deg, #201a38 0%, #1e293b 68%);
+    border-color: #5b4b8a !important;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.18);
+}
+.dark .ff-validation-shap-header h3 { color: #c4b5fd !important; }
+.dark .ff-validation-shap-header p,
+.dark .ff-validation-shap-panel .ff-empty-state p { color: #a8b5c8 !important; }
+.dark .ff-validation-shap-panel .ff-empty-state {
+    background: #1e1b4b;
+    border-color: #5b4b8a;
+}
+.dark .ff-validation-shap-panel .ff-shap-plot {
+    background: #1e293b;
+    border-color: #334155;
+}

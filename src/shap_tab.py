@@ -387,8 +387,21 @@ def build_validation_shap_plot(validation_file: gr.File) -> None:
     instead of asking the user to upload a second dataset.  It is intended to
     sit immediately below the calibration chart in the Validate results flow.
     """
+    gr.HTML(
+        '<div class="ff-validation-shap-header">'
+        '<div>'
+        '<p class="ff-section-title">Feature importance</p>'
+        '<h3>Understand this validation result</h3>'
+        '<p>Generate a SHAP summary for the selected model using the same reviewed file.</p>'
+        '</div>'
+        '</div>'
+    )
     with gr.Row(elem_classes="ff-validation-shap-row"):
-        with gr.Column(scale=1, min_width=220):
+        with gr.Column(
+            scale=1,
+            min_width=220,
+            elem_classes="ff-validation-shap-toolbar",
+        ):
             model_dropdown = gr.Dropdown(
                 choices=_DROPDOWN_LABELS + [_UPLOAD_SENTINEL],
                 value=_DROPDOWN_LABELS[0],
@@ -402,12 +415,12 @@ def build_validation_shap_plot(validation_file: gr.File) -> None:
             )
             run_btn = gr.Button(
                 "📊  Generate SHAP Plot",
-                variant="secondary",
+                variant="primary",
                 size="lg",
                 interactive=False,
             )
 
-        with gr.Column(scale=3):
+        with gr.Column(scale=3, elem_classes="ff-validation-shap-output"):
             empty_state = gr.HTML(
                 '<div class="ff-empty-state">'
                 '<div style="font-size:1.5rem;margin-bottom:8px">✨</div>'

@@ -830,9 +830,10 @@ def build_review_tab() -> None:
                     next_btn = gr.Button("Next →", elem_classes="btn-nav", variant="secondary", size="sm")
 
                 with gr.Row():
-                    real_btn   = gr.Button("Real",         elem_classes="btn-real",   variant="secondary")
-                    equiv_btn  = gr.Button("Equivocal",    elem_classes="btn-equiv",  variant="secondary")
-                    contam_btn = gr.Button("Contaminated", elem_classes="btn-contam", variant="secondary")
+                    real_btn = gr.Button("Real", elem_classes="btn-real", variant="secondary")
+                    contam_btn = gr.Button(
+                        "Contaminated", elem_classes="btn-contam", variant="secondary"
+                    )
 
         # -- Load file --
         def _load_file(file_path, st):
@@ -907,7 +908,7 @@ def build_review_tab() -> None:
             row_html = _build_review_html(records[next_idx])
             return st, _counter_html(next_idx, len(records), n_labeled), gr.update(value=csv_path, visible=True), gr.update(value=row_html)
 
-        for btn, lbl in [(real_btn, "Real"), (equiv_btn, "Equivocal"), (contam_btn, "Contaminated")]:
+        for btn, lbl in [(real_btn, "Real"), (contam_btn, "Contaminated")]:
             btn.click(
                 lambda st, rev, lv=lbl: _label(st, lv, rev),
                 inputs=[state, reviewer_name],
@@ -923,9 +924,13 @@ def build_validate_tab() -> None:
     from .shap_tab import build_validation_shap_plot
 
     with gr.Tab("✅  Validate"):
-        with gr.Row():
+        with gr.Row(elem_classes="ff-validation-layout"):
             # ── Left sidebar ───────────────────────────────────────────
-            with gr.Column(scale=1, min_width=240):
+            with gr.Column(
+                scale=1,
+                min_width=240,
+                elem_classes="ff-validation-sidebar",
+            ):
                 gr.HTML('<p class="ff-section-title">Validation file</p>', elem_classes="ff-th")
                 validation_file = gr.File(
                     label="Upload reviewed predictions CSV",
@@ -935,7 +940,8 @@ def build_validate_tab() -> None:
                     '<p class="ff-hint">Use the file downloaded from <strong>Review</strong>. '
                     'It should contain a probability column (for example, '
                     '<code>max_retrospective_prob</code>) and a ground-truth '
-                    '<code>human_label</code>.</p>'
+                    '<code>human_label</code> marked <strong>Real</strong> or '
+                    '<strong>Contaminated</strong>.</p>'
                 )
 
                 with gr.Group(visible=False) as validation_controls:
@@ -953,18 +959,6 @@ def build_validate_tab() -> None:
                         interactive=True,
                         allow_custom_value=True,
                     )
-                    equivocal_policy = gr.Radio(
-                        [
-                            "Exclude equivocal labels",
-                            "Treat equivocal as contaminated",
-                            "Treat equivocal as real",
-                        ],
-                        value="Exclude equivocal labels",
-                        label="Equivocal labels",
-                        interactive=True,
-                        elem_classes="ff-top-radio",
-                    )
-
                 # Report files are generated from the same payload that powers
                 # the interactive dashboard.  Keeping these controls in the
                 # sidebar makes them available without taking space from the
@@ -986,11 +980,12 @@ def build_validate_tab() -> None:
                     )
 
             # ── Right main area ────────────────────────────────────────
-            with gr.Column(scale=3):
+            with gr.Column(scale=3, elem_classes="ff-validation-main"):
                 validate_empty_state = gr.HTML(
-                    '<div class="ff-empty-state">'
-                    '<div style="font-size:1.75rem;margin-bottom:10px">📈</div>'
-                    '<p>Upload a <strong>reviewed predictions CSV</strong> to evaluate model performance</p>'
+                    '<div class="ff-empty-state ff-validation-empty-state">'
+                    '<div class="ff-validation-empty-icon">📈</div>'
+                    '<p>Upload a <strong>reviewed predictions CSV</strong> to evaluate model performance.</p>'
+                    '<span>Performance metrics, threshold exploration, calibration, and feature importance will appear here.</span>'
                     '</div>',
                     visible=True,
                 )
@@ -1045,7 +1040,6 @@ def build_validate_tab() -> None:
             file_path,
             selected_label,
             selected_score,
-            policy,
             event: gr.EventData,
         ):
             """Regenerate only the downloadable report for a committed chart threshold.
@@ -1072,7 +1066,6 @@ def build_validate_tab() -> None:
                     df,
                     score_column=selected_score,
                     label_column=selected_label,
-                    equivocal_policy=policy,
                     threshold=threshold,
                 )
                 return _validation_report_download_updates(payload)
@@ -1086,7 +1079,7 @@ def build_validate_tab() -> None:
                 # late threshold-sync event cannot be processed.
                 return (gr.update(), gr.update(), gr.update())
 
-        def _load_validation_file(file_path, policy):
+        def _load_validation_file(file_path):
             """Inspect the file, choose sensible columns, and generate the first report."""
             if not file_path:
                 return (
@@ -1124,7 +1117,6 @@ def build_validate_tab() -> None:
                     df,
                     score_column=selected_score,
                     label_column=selected_label,
-                    equivocal_policy=policy,
                 )
                 summary = payload["summary"]
                 status = (
@@ -1172,7 +1164,7 @@ def build_validate_tab() -> None:
                     *_hide_validation_report_downloads(),
                 )
 
-        def _refresh_validation(file_path, selected_label, selected_score, policy):
+        def _refresh_validation(file_path, selected_label, selected_score):
             if not file_path or not selected_label or not selected_score:
                 return (
                     "",
@@ -1186,7 +1178,6 @@ def build_validate_tab() -> None:
                     df,
                     score_column=selected_score,
                     label_column=selected_label,
-                    equivocal_policy=policy,
                 )
                 summary = payload["summary"]
                 return (
@@ -1227,11 +1218,11 @@ def build_validate_tab() -> None:
         ]
         validation_file.change(
             _load_validation_file,
-            inputs=[validation_file, equivocal_policy],
+            inputs=[validation_file],
             outputs=_load_outputs,
         )
 
-        _refresh_inputs = [validation_file, label_column, score_column, equivocal_policy]
+        _refresh_inputs = [validation_file, label_column, score_column]
         _refresh_outputs = [
             validation_status,
             validation_dashboard,
@@ -1240,7 +1231,7 @@ def build_validate_tab() -> None:
             validation_html_download,
             validation_pdf_download,
         ]
-        for trigger in (label_column, score_column, equivocal_policy):
+        for trigger in (label_column, score_column):
             trigger.change(
                 _refresh_validation,
                 inputs=_refresh_inputs,
