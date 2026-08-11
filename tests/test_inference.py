@@ -23,16 +23,10 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 # ---------------------------------------------------------------------------
 
 def test_label_contaminated():
-    # Spec: contaminated when p > 0.75 (the 0.75 boundary itself is equivocal).
+    # Spec: contaminated when p >= 0.50.
+    assert label_pred_class(0.5) == "Contaminated"
     assert label_pred_class(0.76) == "Contaminated"
     assert label_pred_class(1.0) == "Contaminated"
-
-
-def test_label_equivocal():
-    assert label_pred_class(0.5) == "Equivocal"
-    assert label_pred_class(0.6) == "Equivocal"
-    assert label_pred_class(0.7) == "Equivocal"
-    assert label_pred_class(0.75) == "Equivocal"
 
 
 def test_label_real():
@@ -123,7 +117,7 @@ def test_bmp_pred_labels_valid(bmp_models_in_cache):
     df = _make_synthetic_bmp_df(n=10)
     result = make_bmp_predictions(df, selected_fluids=["NS"])
     pred_cols = [c for c in result.columns if c.startswith("pred_")]
-    valid_labels = {"Real", "Equivocal", "Contaminated", None}
+    valid_labels = {"Real", "Contaminated", None}
     for col in pred_cols:
         for val in result[col]:
             assert val in valid_labels, f"Unexpected label: {val}"

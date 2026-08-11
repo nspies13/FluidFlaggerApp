@@ -19,7 +19,10 @@ from sklearn.metrics import (
 )
 
 
-DEFAULT_THRESHOLD = 0.75
+# Validate reports the app's binary operating point: probabilities at or above
+# 0.50 are positive. Keep the numeric value local so validation remains usable
+# independently of the prediction UI.
+DEFAULT_THRESHOLD = 0.50
 MAX_RENDER_CURVE_POINTS = 2_000
 
 
@@ -268,14 +271,14 @@ def operating_metrics(
 ) -> dict[str, int | float | None]:
     """Calculate a binary confusion matrix and threshold-dependent metrics.
 
-    A score strictly *above* the threshold is counted as contaminated. This
-    matches src.inference.label_pred_class(), so the default 0.75 operating
-    point reproduces the classes shown in Predict exports.
+    A score greater than or equal to the threshold is counted as contaminated.
+    Validate uses a binary 0.50 default operating point, so a probability of
+    exactly 0.50 is a positive prediction.
     """
     if not 0 <= threshold <= 1:
         raise ValidationDataError("Threshold must be between 0 and 1.")
 
-    predictions = scores > threshold
+    predictions = scores >= threshold
     positives = labels == 1
     negatives = ~positives
 
@@ -328,12 +331,14 @@ def _threshold_curve(
     labels: np.ndarray,
     scores: np.ndarray,
 ) -> tuple[list[dict[str, float | None]], list[dict[str, float]]]:
-    """Build ROC and PR points using the app's strict score > threshold rule.
+    """Build ROC and PR points using the Validate score >= threshold rule.
 
-    sklearn's curve helpers conventionally use score >= threshold. The ranking
-    AUCs remain standard sklearn values, but this operating curve intentionally
-    uses the same rule as Predict so a dragged ROC point, its 2×2 table, and
-    the exported prediction classes all agree.
+    The selectable ROC points exactly match :func:`operating_metrics`.  A
+    score group is added *before* emitting its threshold, which makes the
+    point at (for example) 0.50 include probabilities equal to 0.50.  The
+    visual zero-positive endpoint is selectable at 1.0 whenever no score is
+    exactly 1.0; otherwise it remains a non-selectable sentinel because the
+    slider cannot move above 1.0.
     """
     positives = int(np.sum(labels == 1))
     negatives = int(np.sum(labels == 0))
@@ -360,6 +365,14 @@ def _threshold_curve(
     order = np.argsort(-scores, kind="stable")
     sorted_scores = scores[order]
     sorted_labels = labels[order]
+    # At a threshold of 1.0, scores below 1.0 are negative.  If a score is
+    # exactly 1.0, that threshold instead includes the score group, so retain
+    # a non-selectable visual origin until the group is processed below.
+    if len(sorted_scores) and sorted_scores[0] < 1:
+        append_point(1.0)
+    else:
+        append_point(None)
+
     start = 0
     while start < len(sorted_scores):
         score = float(sorted_scores[start])
@@ -367,21 +380,19 @@ def _threshold_curve(
         while end < len(sorted_scores) and sorted_scores[end] == score:
             end += 1
 
-        # At this point tp/fp contain only rows with score > score.
-        append_point(score)
         group_labels = sorted_labels[start:end]
         tp += int(np.sum(group_labels == 1))
         fp += int(np.sum(group_labels == 0))
+        # The point at ``score`` represents scores >= score.
+        append_point(score)
         start = end
 
-    # If the minimum score is above zero, a threshold of zero includes every
-    # row. If zero itself is a score, the zero-threshold point emitted above
-    # correctly represents score > 0. We append a non-selectable visual
-    # sentinel to preserve the conventional (1, 1) ROC/PR endpoint.
+    # If the minimum score is above zero, a threshold of zero also includes
+    # every row. Add it so slider values below the first observed probability
+    # have an exact cached operating point. When zero is observed, its group
+    # above already represents the inclusive threshold correctly.
     if len(sorted_scores) and sorted_scores[-1] > 0:
         append_point(0.0)
-    elif len(sorted_scores):
-        append_point(None)
 
     return roc_points, pr_points
 
@@ -460,7 +471,7 @@ def build_validation_payload(
         "score_column": str(score_column),
         "label_column": str(label_column),
         "threshold": float(threshold),
-        "threshold_rule": "score > threshold",
+        "threshold_rule": "score >= threshold",
         "summary": {
             "total_rows": prepared.total_rows,
             "included_rows": int(len(prepared.labels)),

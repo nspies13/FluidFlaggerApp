@@ -4,7 +4,8 @@ BMP and CBC prediction functions.
 Ports makeBmpPredictions() from bmp_helpers.R and
 makeCbcPredictions() from cbc_helpers.R.
 
-Predicted labels use an equivocal zone between 0.5 and 0.75
+Predicted labels are binary: probabilities of 0.50 or higher are
+classified as contaminated; lower probabilities are classified as real.
 
 """
 
@@ -28,18 +29,15 @@ from .model_loader import (
 # Prediction labelling
 # ---------------------------------------------------------------------------
 
-_CONTAM_THRESHOLD = 0.75
-_EQUIVOCAL_LOW = 0.5 
+_CONTAM_THRESHOLD = 0.50
 
 
-def label_pred_class(prob: float) -> str:
-    """Convert a contamination probability to a class label."""
+def label_pred_class(prob: float) -> Optional[str]:
+    """Convert a contamination probability to a binary class label."""
     if prob is None or (isinstance(prob, float) and np.isnan(prob)):
         return None
-    if prob > _CONTAM_THRESHOLD:
+    if prob >= _CONTAM_THRESHOLD:
         return "Contaminated"
-    if prob >= _EQUIVOCAL_LOW:
-        return "Equivocal"
     return "Real"
 
 

@@ -33,16 +33,17 @@
         let upper = thresholds.length - 1;
         let selected = 0;
 
-        // Each cached point represents predictions where score > point's
-        // threshold. Select the largest cached threshold at or below the
-        // requested value, which gives the matching score interval.
+        // Each cached point represents predictions where score >= point's
+        // threshold. Select the smallest cached threshold at or above the
+        // requested value, which gives the matching score interval. In
+        // particular, a score exactly equal to a slider value is positive.
         while (lower <= upper) {
             const middle = Math.floor((lower + upper) / 2);
-            if (thresholds[middle] <= threshold) {
+            if (thresholds[middle] >= threshold) {
                 selected = middle;
-                lower = middle + 1;
-            } else {
                 upper = middle - 1;
+            } else {
+                lower = middle + 1;
             }
         }
 

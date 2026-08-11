@@ -156,7 +156,7 @@ The response echoes all input fields plus prediction columns for each fluid type
     "mix_ratio_LR": 0.38,
 
     "prob_D5W_Realtime": 0.654,
-    "pred_D5W_Realtime": "Equivocal",
+    "pred_D5W_Realtime": "Contaminated",
 
     "...": "... (one prob/pred pair per fluid × timing) ...",
 
@@ -181,7 +181,7 @@ The response echoes all input fields plus prediction columns for each fluid type
 | Field pattern | Description |
 |---------------|-------------|
 | `prob_{fluid}_{timing}` | Contamination probability (0–1) for a specific fluid and timing |
-| `pred_{fluid}_{timing}` | Classification: `"Contaminated"` (>0.75), `"Equivocal"` (0.5–0.75), or `"Real"` (<0.5) |
+| `pred_{fluid}_{timing}` | Classification: `"Contaminated"` (≥0.50) or `"Real"` (<0.50) |
 | `mix_ratio_{fluid}` | Estimated IV-fluid mix ratio (retrospective only) |
 | `any_realtime_pred` | `true` if any fluid (excluding LR) flagged as Contaminated in realtime |
 | `any_retrospective_pred` | Same for retrospective |

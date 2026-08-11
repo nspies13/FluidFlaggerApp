@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from src.validation import (
+    DEFAULT_THRESHOLD,
     ValidationDataError,
     _threshold_curve,
     build_validation_payload,
@@ -61,7 +62,7 @@ def test_operating_metrics_calculates_all_requested_measures():
     labels = pd.Series([1, 1, 0, 0]).to_numpy()
     scores = pd.Series([0.9, 0.4, 0.8, 0.3]).to_numpy()
 
-    metrics = operating_metrics(labels, scores, threshold=0.75)
+    metrics = operating_metrics(labels, scores, threshold=0.50)
 
     assert {key: metrics[key] for key in ("tp", "fp", "tn", "fn")} == {
         "tp": 1,
@@ -76,18 +77,19 @@ def test_operating_metrics_calculates_all_requested_measures():
     assert metrics["f1"] == pytest.approx(0.5)
 
 
-def test_operating_metrics_matches_predicts_strict_threshold_boundary():
+def test_operating_metrics_uses_inclusive_default_threshold_boundary():
     labels = pd.Series([1, 1, 0]).to_numpy()
-    scores = pd.Series([0.76, 0.75, 0.74]).to_numpy()
+    scores = pd.Series([0.51, 0.50, 0.49]).to_numpy()
 
-    metrics = operating_metrics(labels, scores, threshold=0.75)
+    metrics = operating_metrics(labels, scores)
 
-    # Predict treats exactly 0.75 as Equivocal rather than Contaminated.
+    assert DEFAULT_THRESHOLD == pytest.approx(0.50)
+    # A probability exactly at the Validate operating point is positive.
     assert {key: metrics[key] for key in ("tp", "fp", "tn", "fn")} == {
-        "tp": 1,
+        "tp": 2,
         "fp": 0,
         "tn": 1,
-        "fn": 1,
+        "fn": 0,
     }
 
 
@@ -109,19 +111,20 @@ def test_payload_has_curves_auc_calibration_and_binary_table():
     assert payload["pr"]
     assert payload["calibration"]
     assert all("threshold" in point for point in payload["roc"])
-    assert payload["threshold_rule"] == "score > threshold"
+    assert payload["threshold"] == pytest.approx(0.50)
+    assert payload["threshold_rule"] == "score >= threshold"
 
     # The compact operating arrays power browser-side threshold updates.
     thresholds = payload["operating"]["thresholds"]
-    selected = max(index for index, value in enumerate(thresholds) if value <= 0.75)
+    selected = min(index for index, value in enumerate(thresholds) if value >= 0.50)
     assert payload["operating"]["tp"][selected] == 2
     assert payload["operating"]["fp"][selected] == 0
 
 
-def test_compact_operating_points_match_every_threshold_interval():
+def test_compact_operating_points_match_every_slider_interval_and_boundary():
     df = pd.DataFrame(
         {
-            "max_realtime_prob": [0.95, 0.83, 0.75, 0.43, 0.08],
+            "max_realtime_prob": [0.95, 0.83, 0.50, 0.43, 0.08],
             "human_label": ["Contaminated", "Real", "Contaminated", "Real", "Real"],
         }
     )
@@ -129,11 +132,13 @@ def test_compact_operating_points_match_every_threshold_interval():
     prepared = prepare_validation_data(df, "max_realtime_prob", "human_label")
     operating = payload["operating"]
 
-    for threshold in (0.0, 0.75, 0.82, 1.0):
-        selected = max(
+    # These values cover each side of an observed score as well as the
+    # inclusive 0.500 boundary a 0.001-step slider can produce.
+    for threshold in (0.0, 0.079, 0.08, 0.081, 0.429, 0.43, 0.499, 0.50, 0.501, 0.829, 0.83, 0.831, 0.95, 0.951, 1.0):
+        selected = min(
             index
             for index, cached_threshold in enumerate(operating["thresholds"])
-            if cached_threshold <= threshold
+            if cached_threshold >= threshold
         )
         actual = operating_metrics(prepared.labels, prepared.scores, threshold)
         assert operating["tp"][selected] == actual["tp"]
@@ -152,12 +157,24 @@ def test_payload_requires_both_ground_truth_classes():
         build_validation_payload(df, "max_realtime_prob", "human_label")
 
 
-def test_threshold_curve_keeps_the_all_positive_endpoint_for_zero_scores():
+def test_threshold_curve_keeps_inclusive_zero_score_endpoint_selectable():
     labels = pd.Series([0, 1]).to_numpy()
     scores = pd.Series([0.0, 0.0]).to_numpy()
 
     roc, pr = _threshold_curve(labels, scores)
 
-    assert roc[0] == {"fpr": 0.0, "tpr": 0.0, "threshold": 0.0}
-    assert roc[-1] == {"fpr": 1.0, "tpr": 1.0, "threshold": None}
+    assert roc[0] == {"fpr": 0.0, "tpr": 0.0, "threshold": 1.0}
+    assert roc[-1] == {"fpr": 1.0, "tpr": 1.0, "threshold": 0.0}
+    assert pr[-1] == {"recall": 1.0, "precision": 0.5}
+
+
+def test_threshold_curve_uses_nonselectable_origin_when_a_score_is_one():
+    labels = pd.Series([0, 1]).to_numpy()
+    scores = pd.Series([1.0, 1.0]).to_numpy()
+
+    roc, pr = _threshold_curve(labels, scores)
+
+    assert roc[0] == {"fpr": 0.0, "tpr": 0.0, "threshold": None}
+    assert roc[1] == {"fpr": 1.0, "tpr": 1.0, "threshold": 1.0}
+    assert roc[-1] == {"fpr": 1.0, "tpr": 1.0, "threshold": 0.0}
     assert pr[-1] == {"recall": 1.0, "precision": 0.5}
