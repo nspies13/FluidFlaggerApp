@@ -965,6 +965,26 @@ def build_validate_tab() -> None:
                         elem_classes="ff-top-radio",
                     )
 
+                # Report files are generated from the same payload that powers
+                # the interactive dashboard.  Keeping these controls in the
+                # sidebar makes them available without taking space from the
+                # charts themselves.
+                with gr.Group(visible=False) as validation_report_downloads:
+                    gr.HTML('<hr class="ff-divider">')
+                    gr.HTML('<p class="ff-section-title">Download report</p>', elem_classes="ff-th")
+                    validation_html_download = gr.DownloadButton(
+                        "⬇  Download HTML Report",
+                        visible=False,
+                        variant="secondary",
+                        elem_id="validate-html-report-download-btn",
+                    )
+                    validation_pdf_download = gr.DownloadButton(
+                        "⬇  Download PDF Report",
+                        visible=False,
+                        variant="secondary",
+                        elem_id="validate-pdf-report-download-btn",
+                    )
+
             # ── Right main area ────────────────────────────────────────
             with gr.Column(scale=3):
                 validate_empty_state = gr.HTML(
@@ -1003,6 +1023,72 @@ def build_validate_tab() -> None:
             )
             build_shap_section()
 
+        def _hide_validation_report_downloads():
+            """Hide report actions when validation is unavailable."""
+            return (
+                gr.update(visible=False),
+                gr.update(value=None, visible=False),
+                gr.update(value=None, visible=False),
+            )
+
+        def _validation_report_download_updates(payload):
+            """Generate report artifacts and expose them through the sidebar."""
+            # Lazy import keeps the Validate tab usable while the app starts and
+            # ensures artifacts always correspond to the current dashboard.
+            from .validation_report import build_validation_report_files
+
+            html_path, pdf_path = build_validation_report_files(payload)
+            return (
+                gr.update(visible=True),
+                gr.update(value=html_path, visible=True),
+                gr.update(value=pdf_path, visible=True),
+            )
+
+        def _refresh_validation_report_at_threshold(
+            file_path,
+            selected_label,
+            selected_score,
+            policy,
+            event: gr.EventData,
+        ):
+            """Regenerate only the downloadable report for a committed chart threshold.
+
+            ``validation_dashboard`` is a custom HTML component. Its browser
+            renderer sends the selected threshold as click-event data after a
+            slider commit or ROC-pointer release. Keeping this callback scoped
+            to the report outputs avoids replacing the chart while it is being
+            manipulated, and avoids expensive report generation for every
+            intermediate drag frame.
+            """
+            if not file_path or not selected_label or not selected_score:
+                # A file-change event already hides stale downloads. Do not
+                # re-expose them if an in-flight browser event arrives later.
+                return _hide_validation_report_downloads()
+
+            try:
+                threshold = float(event.threshold)
+                if not 0 <= threshold <= 1:
+                    raise ValueError("threshold must be between 0 and 1")
+
+                df = _read_uploaded_delimited_file(file_path)
+                payload = build_validation_payload(
+                    df,
+                    score_column=selected_score,
+                    label_column=selected_label,
+                    equivocal_policy=policy,
+                    threshold=threshold,
+                )
+                return _validation_report_download_updates(payload)
+            except (AttributeError, TypeError, ValueError, ValidationDataError):
+                # Event data originates in the browser. A malformed or stale
+                # event should not remove a valid, previously generated report.
+                return (gr.update(), gr.update(), gr.update())
+            except Exception:
+                # The primary file/settings callbacks surface report failures
+                # in the status area. Keep an existing report available if a
+                # late threshold-sync event cannot be processed.
+                return (gr.update(), gr.update(), gr.update())
+
         def _load_validation_file(file_path, policy):
             """Inspect the file, choose sensible columns, and generate the first report."""
             if not file_path:
@@ -1016,6 +1102,7 @@ def build_validate_tab() -> None:
                     gr.update(value="", visible=False),
                     gr.update(visible=True),
                     gr.update(visible=False),
+                    *_hide_validation_report_downloads(),
                 )
 
             try:
@@ -1048,6 +1135,7 @@ def build_validate_tab() -> None:
                     f"({summary['positive_count']:,} contaminated; "
                     f"{summary['excluded_rows']:,} excluded)."
                 )
+                report_download_updates = _validation_report_download_updates(payload)
                 return (
                     gr.update(choices=labels, value=selected_label),
                     gr.update(choices=scores, value=selected_score),
@@ -1058,6 +1146,7 @@ def build_validate_tab() -> None:
                     gr.update(value=_validation_dashboard_html(payload), visible=True),
                     gr.update(visible=False),
                     gr.update(visible=True),
+                    *report_download_updates,
                 )
             except (ValidationDataError, ValueError) as exc:
                 return (
@@ -1070,6 +1159,7 @@ def build_validate_tab() -> None:
                     gr.update(value="", visible=False),
                     gr.update(visible=True),
                     gr.update(visible=False),
+                    *_hide_validation_report_downloads(),
                 )
             except Exception:
                 return (
@@ -1082,11 +1172,16 @@ def build_validate_tab() -> None:
                     gr.update(value="", visible=False),
                     gr.update(visible=True),
                     gr.update(visible=False),
+                    *_hide_validation_report_downloads(),
                 )
 
         def _refresh_validation(file_path, selected_label, selected_score, policy):
             if not file_path or not selected_label or not selected_score:
-                return "", gr.update(value="", visible=False)
+                return (
+                    "",
+                    gr.update(value="", visible=False),
+                    *_hide_validation_report_downloads(),
+                )
             try:
                 df = _read_uploaded_delimited_file(file_path)
                 payload = build_validation_payload(
@@ -1100,13 +1195,19 @@ def build_validate_tab() -> None:
                     f"✓ Updated using {summary['included_rows']:,} evaluable rows "
                     f"({summary['excluded_rows']:,} excluded).",
                     gr.update(value=_validation_dashboard_html(payload), visible=True),
+                    *_validation_report_download_updates(payload),
                 )
             except (ValidationDataError, ValueError) as exc:
-                return _err(f"⚠️ {exc}"), gr.update(value="", visible=False)
+                return (
+                    _err(f"⚠️ {exc}"),
+                    gr.update(value="", visible=False),
+                    *_hide_validation_report_downloads(),
+                )
             except Exception:
                 return (
                     _err(f"Could not update validation: {traceback.format_exc()}"),
                     gr.update(value="", visible=False),
+                    *_hide_validation_report_downloads(),
                 )
 
         _load_outputs = [
@@ -1119,6 +1220,9 @@ def build_validate_tab() -> None:
             validation_dashboard,
             validate_empty_state,
             validate_explain_section,
+            validation_report_downloads,
+            validation_html_download,
+            validation_pdf_download,
         ]
         validation_file.change(
             _load_validation_file,
@@ -1127,13 +1231,32 @@ def build_validate_tab() -> None:
         )
 
         _refresh_inputs = [validation_file, label_column, score_column, equivocal_policy]
-        _refresh_outputs = [validation_status, validation_dashboard]
+        _refresh_outputs = [
+            validation_status,
+            validation_dashboard,
+            validation_report_downloads,
+            validation_html_download,
+            validation_pdf_download,
+        ]
         for trigger in (label_column, score_column, equivocal_policy):
             trigger.change(
                 _refresh_validation,
                 inputs=_refresh_inputs,
                 outputs=_refresh_outputs,
             )
+
+        validation_dashboard.click(
+            _refresh_validation_report_at_threshold,
+            inputs=_refresh_inputs,
+            outputs=[
+                validation_report_downloads,
+                validation_html_download,
+                validation_pdf_download,
+            ],
+            # This endpoint is called only after the browser commits a
+            # threshold; it does not run during slider/ROC drag updates.
+            show_progress="hidden",
+        )
 
 # ---------------------------------------------------------------------------
 # Tab 5 – Self Test

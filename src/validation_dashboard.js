@@ -212,6 +212,10 @@
         const thresholdSlider = root.querySelector("[data-threshold-range]");
         const rocSvg = root.querySelector(".ff-v-roc-svg");
         let threshold = clamp(Number(data.threshold));
+        // The upload/settings callbacks generate the initial default report.
+        // Remember that threshold so a no-op click does not create another
+        // report, and only notify Gradio after a committed user interaction.
+        let lastReportedThreshold = threshold;
 
         const updateThreshold = (nextThreshold) => {
             threshold = clamp(Number(nextThreshold));
@@ -238,6 +242,15 @@
             }
         };
 
+        const reportCommittedThreshold = () => {
+            if (threshold === lastReportedThreshold || typeof trigger !== "function") return;
+            lastReportedThreshold = threshold;
+            // ``trigger`` is provided by gr.HTML's js_on_load environment.
+            // The Python click handler rebuilds just the downloadable report
+            // with this exact operating threshold.
+            trigger("click", { threshold: threshold });
+        };
+
         const nearestThreshold = (event) => {
             const rect = rocSvg.getBoundingClientRect();
             const rawX = ((event.clientX - rect.left) / rect.width) * viewWidth;
@@ -260,6 +273,7 @@
         };
 
         thresholdSlider.addEventListener("input", () => updateThreshold(thresholdSlider.value));
+        thresholdSlider.addEventListener("change", reportCommittedThreshold);
 
         let dragging = false;
         rocSvg.addEventListener("pointerdown", (event) => {
@@ -271,14 +285,15 @@
         rocSvg.addEventListener("pointermove", (event) => {
             if (dragging) updateThreshold(nearestThreshold(event));
         });
-        const stopDragging = (event) => {
+        const stopDragging = (event, commit = true) => {
             dragging = false;
             if (rocSvg.releasePointerCapture && rocSvg.hasPointerCapture(event.pointerId)) {
                 rocSvg.releasePointerCapture(event.pointerId);
             }
+            if (commit) reportCommittedThreshold();
         };
         rocSvg.addEventListener("pointerup", stopDragging);
-        rocSvg.addEventListener("pointercancel", stopDragging);
+        rocSvg.addEventListener("pointercancel", (event) => stopDragging(event, false));
 
         updateThreshold(threshold);
     };
