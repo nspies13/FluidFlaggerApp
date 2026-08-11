@@ -1,14 +1,16 @@
-"""
-Gradio Blocks UI — three tabs mirroring the Shiny prediction_app.R:
-  1. Predict  — file upload (wide/long CSV) or manual entry → predictions table + download
-  2. Train    — upload training data → train models → download models
-  3. Review   — step through predictions and label each row
+"""FluidFlagger's Gradio Blocks UI.
+
+The app provides Predict, Train, Review, Validate, and Self Test tabs.
+Validate consumes reviewed prediction exports and includes the former Explain
+(SHAP) tools in its lower section.
 """
 
 from __future__ import annotations
 
 import datetime
+import html
 import io
+import json
 import os
 import tempfile
 import traceback
@@ -30,6 +32,14 @@ from .model_loader import (
     model_key as _model_key,
 )
 from .simulate import get_fluid_names
+from .validation import (
+    ValidationDataError,
+    build_validation_payload,
+    default_label_column,
+    default_score_column,
+    find_label_columns,
+    find_score_columns,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +234,26 @@ def _preview_csv(file_path):
     return (
         gr.update(value=df.head(10), visible=True),
         gr.update(value=f"**{n_rows:,} rows × {n_cols} columns**", visible=True),
+    )
+
+
+def _read_uploaded_delimited_file(file_path: str | None) -> Optional[pd.DataFrame]:
+    """Read a comma- or tab-delimited upload, inferring its delimiter."""
+    if not file_path:
+        return None
+    try:
+        return pd.read_csv(file_path, sep=None, engine="python")
+    except Exception as exc:
+        raise ValidationDataError(f"Could not read file: {exc}") from exc
+
+
+def _validation_dashboard_html(payload: dict) -> str:
+    """Wrap a JSON-safe performance payload for the interactive HTML renderer."""
+    payload_json = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
+    escaped_payload = html.escape(payload_json, quote=True)
+    return (
+        '<div class="ff-validation-dashboard" '
+        f'data-payload="{escaped_payload}"></div>'
     )
 
 # ---------------------------------------------------------------------------
@@ -885,7 +915,220 @@ def build_review_tab() -> None:
             )
 
 # ---------------------------------------------------------------------------
-# Tab 4 – Self Test
+# Tab 4 – Validate
+# ---------------------------------------------------------------------------
+
+def build_validate_tab() -> None:
+    """Build interactive performance validation plus the embedded Explain tools."""
+    from .shap_tab import build_shap_section
+
+    with gr.Tab("✅  Validate"):
+        with gr.Row():
+            # ── Left sidebar ───────────────────────────────────────────
+            with gr.Column(scale=1, min_width=240):
+                gr.HTML('<p class="ff-section-title">Validation file</p>', elem_classes="ff-th")
+                validation_file = gr.File(
+                    label="Upload reviewed predictions CSV",
+                    file_types=[".csv", ".tsv"],
+                )
+                gr.HTML(
+                    '<p class="ff-hint">Use the file downloaded from <strong>Review</strong>. '
+                    'It should contain a probability column (for example, '
+                    '<code>max_retrospective_prob</code>) and a ground-truth '
+                    '<code>human_label</code>.</p>'
+                )
+
+                with gr.Group(visible=False) as validation_controls:
+                    gr.HTML('<hr class="ff-divider">')
+                    gr.HTML('<p class="ff-section-title">Analysis settings</p>', elem_classes="ff-th")
+                    label_column = gr.Dropdown(
+                        choices=[],
+                        label="Ground-truth label",
+                        interactive=True,
+                        allow_custom_value=True,
+                    )
+                    score_column = gr.Dropdown(
+                        choices=[],
+                        label="Prediction probability",
+                        interactive=True,
+                        allow_custom_value=True,
+                    )
+                    equivocal_policy = gr.Radio(
+                        [
+                            "Exclude equivocal labels",
+                            "Treat equivocal as contaminated",
+                            "Treat equivocal as real",
+                        ],
+                        value="Exclude equivocal labels",
+                        label="Equivocal labels",
+                        interactive=True,
+                        elem_classes="ff-top-radio",
+                    )
+
+            # ── Right main area ────────────────────────────────────────
+            with gr.Column(scale=3):
+                validate_empty_state = gr.HTML(
+                    '<div class="ff-empty-state">'
+                    '<div style="font-size:1.75rem;margin-bottom:10px">📈</div>'
+                    '<p>Upload a <strong>reviewed predictions CSV</strong> to evaluate model performance</p>'
+                    '</div>',
+                    visible=True,
+                )
+                validation_status = gr.Markdown("", elem_classes="ff-status")
+                validation_dashboard = gr.HTML(
+                    "",
+                    visible=False,
+                    elem_id="validate-performance-dashboard",
+                    elem_classes="ff-validation-dashboard-wrap",
+                    apply_default_css=False,
+                    js_on_load=_VALIDATION_DASHBOARD_JS,
+                )
+                validation_preview_info = gr.Markdown("", visible=False, elem_classes="ff-preview-info")
+                validation_preview = gr.DataFrame(
+                    label="Data Preview (first 10 rows)",
+                    interactive=False,
+                    wrap=False,
+                    visible=False,
+                    elem_classes="ff-preview-table",
+                )
+
+        def _load_validation_file(file_path, policy):
+            """Inspect the file, choose sensible columns, and generate the first report."""
+            if not file_path:
+                return (
+                    gr.update(choices=[], value=None),
+                    gr.update(choices=[], value=None),
+                    gr.update(visible=False),
+                    "",
+                    gr.update(visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(visible=True),
+                )
+
+            try:
+                df = _read_uploaded_delimited_file(file_path)
+                labels = find_label_columns(df)
+                scores = find_score_columns(df)
+                selected_label = default_label_column(labels)
+                selected_score = default_score_column(scores)
+
+                if not labels:
+                    raise ValidationDataError(
+                        "Could not identify a ground-truth label column. "
+                        "Expected a column such as human_label, ground_truth, or label."
+                    )
+                if not scores:
+                    raise ValidationDataError(
+                        "Could not identify a probability column. "
+                        "Expected a 0–1 column such as max_retrospective_prob or prob_*."
+                    )
+
+                payload = build_validation_payload(
+                    df,
+                    score_column=selected_score,
+                    label_column=selected_label,
+                    equivocal_policy=policy,
+                )
+                summary = payload["summary"]
+                status = (
+                    f"✓ {summary['included_rows']:,} evaluable rows loaded "
+                    f"({summary['positive_count']:,} contaminated; "
+                    f"{summary['excluded_rows']:,} excluded)."
+                )
+                return (
+                    gr.update(choices=labels, value=selected_label),
+                    gr.update(choices=scores, value=selected_score),
+                    gr.update(visible=True),
+                    status,
+                    gr.update(value=df.head(10), visible=True),
+                    gr.update(value=f"**{len(df):,} rows × {len(df.columns)} columns**", visible=True),
+                    gr.update(value=_validation_dashboard_html(payload), visible=True),
+                    gr.update(visible=False),
+                )
+            except (ValidationDataError, ValueError) as exc:
+                return (
+                    gr.update(choices=[], value=None),
+                    gr.update(choices=[], value=None),
+                    gr.update(visible=False),
+                    _err(f"⚠️ {exc}"),
+                    gr.update(visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(visible=True),
+                )
+            except Exception:
+                return (
+                    gr.update(choices=[], value=None),
+                    gr.update(choices=[], value=None),
+                    gr.update(visible=False),
+                    _err(f"Could not prepare validation: {traceback.format_exc()}"),
+                    gr.update(visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(value="", visible=False),
+                    gr.update(visible=True),
+                )
+
+        def _refresh_validation(file_path, selected_label, selected_score, policy):
+            if not file_path or not selected_label or not selected_score:
+                return "", gr.update(value="", visible=False)
+            try:
+                df = _read_uploaded_delimited_file(file_path)
+                payload = build_validation_payload(
+                    df,
+                    score_column=selected_score,
+                    label_column=selected_label,
+                    equivocal_policy=policy,
+                )
+                summary = payload["summary"]
+                return (
+                    f"✓ Updated using {summary['included_rows']:,} evaluable rows "
+                    f"({summary['excluded_rows']:,} excluded).",
+                    gr.update(value=_validation_dashboard_html(payload), visible=True),
+                )
+            except (ValidationDataError, ValueError) as exc:
+                return _err(f"⚠️ {exc}"), gr.update(value="", visible=False)
+            except Exception:
+                return (
+                    _err(f"Could not update validation: {traceback.format_exc()}"),
+                    gr.update(value="", visible=False),
+                )
+
+        _load_outputs = [
+            label_column,
+            score_column,
+            validation_controls,
+            validation_status,
+            validation_preview,
+            validation_preview_info,
+            validation_dashboard,
+            validate_empty_state,
+        ]
+        validation_file.change(
+            _load_validation_file,
+            inputs=[validation_file, equivocal_policy],
+            outputs=_load_outputs,
+        )
+
+        _refresh_inputs = [validation_file, label_column, score_column, equivocal_policy]
+        _refresh_outputs = [validation_status, validation_dashboard]
+        for trigger in (label_column, score_column, equivocal_policy):
+            trigger.change(
+                _refresh_validation,
+                inputs=_refresh_inputs,
+                outputs=_refresh_outputs,
+            )
+
+        gr.HTML('<hr class="ff-divider">')
+        with gr.Accordion("🔍  Explain model behavior", open=False, elem_classes="ff-explain-accordion"):
+            gr.HTML(
+                '<p class="ff-hint">Generate a SHAP summary plot for a FluidFlagger model. '
+                'This replaces the former standalone Explain tab.</p>'
+            )
+            build_shap_section()
+
+# ---------------------------------------------------------------------------
+# Tab 5 – Self Test
 # ---------------------------------------------------------------------------
 
 def build_self_test_tab(demo=None) -> None:
@@ -1035,6 +1278,7 @@ def build_self_test_tab(demo=None) -> None:
 # ---------------------------------------------------------------------------
 
 _CSS = (Path(__file__).parent / "styles.css").read_text()
+_VALIDATION_DASHBOARD_JS = (Path(__file__).parent / "validation_dashboard.js").read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -1042,8 +1286,6 @@ _CSS = (Path(__file__).parent / "styles.css").read_text()
 # ---------------------------------------------------------------------------
 
 def build_ui(on_load=None) -> gr.Blocks:
-    from .shap_tab import build_shap_tab
-
     _blocks = gr.Blocks(title="FluidFlagger")
     with _blocks as demo:
         gr.HTML("""
@@ -1055,8 +1297,8 @@ def build_ui(on_load=None) -> gr.Blocks:
         build_predict_tab()
         build_train_tab()
         build_review_tab()
+        build_validate_tab()
         build_self_test_tab(demo)
-        build_shap_tab()
         if on_load is not None:
             demo.load(on_load)
     return demo

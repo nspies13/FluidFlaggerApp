@@ -233,129 +233,135 @@ def _compute_shap_png(
 
 
 # ---------------------------------------------------------------------------
-# Gradio tab
+# Gradio section
 # ---------------------------------------------------------------------------
 
-def build_shap_tab() -> None:
-    with gr.Tab("🔍  Explain"):
-        with gr.Row():
-            # ── Left sidebar ───────────────────────────────────────────
-            with gr.Column(scale=1, min_width=220):
-                gr.HTML('<p class="ff-section-title">Model</p>', elem_classes="ff-th")
-                model_dropdown = gr.Dropdown(
-                    choices=_DROPDOWN_LABELS + [_UPLOAD_SENTINEL],
-                    value=_DROPDOWN_LABELS[0],
-                    label="Select model",
-                    interactive=True,
-                )
-                custom_model_upload = gr.File(
-                    label="Upload .joblib file",
-                    file_types=[".joblib"],
-                    visible=False,
-                )
-
-                gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title">Dataset</p>', elem_classes="ff-th")
-                data_upload = gr.File(
-                    label="Upload CSV",
-                    file_types=[".csv", ".tsv"],
-                )
-
-                gr.HTML('<hr class="ff-divider">')
-                run_btn = gr.Button(
-                    "📊  Generate SHAP Plot",
-                    variant="primary", size="lg",
-                    interactive=False,
-                )
-
-            # ── Right main area ────────────────────────────────────────
-            with gr.Column(scale=3):
-                empty_state = gr.HTML(
-                    '<div class="ff-empty-state">'
-                    '<div style="font-size:1.75rem;margin-bottom:10px">📊</div>'
-                    '<p>Select a <strong>model</strong> and upload a <strong>dataset CSV</strong>'
-                    ' to generate a global SHAP summary plot</p>'
-                    '</div>',
-                    visible=True,
-                )
-                status_msg = gr.Markdown("", elem_classes="ff-status")
-                plot_image = gr.Image(
-                    label="SHAP Summary Plot",
-                    visible=False,
-                    interactive=False,
-                    elem_classes="ff-shap-plot",
-                )
-                download_btn = gr.DownloadButton(
-                    "⬇  Download Plot (SVG)",
-                    visible=False, variant="secondary",
-                    elem_id="shap-download-btn",
-                )
-
-        # ── Show/hide custom upload when sentinel selected ─────────────
-        def _on_model_change(label, data_f):
-            show_upload = label == _UPLOAD_SENTINEL
-            # Ready if a HF model is selected, OR upload sentinel + file present
-            ready = bool(data_f) and (not show_upload or False)
-            return gr.update(visible=show_upload), gr.update(interactive=ready)
-
-        model_dropdown.change(
-            _on_model_change,
-            inputs=[model_dropdown, data_upload],
-            outputs=[custom_model_upload, run_btn],
-        )
-
-        # ── Enable run button when data + valid model are present ──────
-        def _toggle_run(label, custom_f, data_f):
-            if not data_f:
-                return gr.update(interactive=False)
-            if label == _UPLOAD_SENTINEL and not custom_f:
-                return gr.update(interactive=False)
-            return gr.update(interactive=True)
-
-        for trigger in (model_dropdown, custom_model_upload, data_upload):
-            trigger.change(
-                _toggle_run,
-                inputs=[model_dropdown, custom_model_upload, data_upload],
-                outputs=run_btn,
+def build_shap_section() -> None:
+    """Build the Explain UI in the current Gradio layout context."""
+    with gr.Row():
+        # ── Left sidebar ───────────────────────────────────────────
+        with gr.Column(scale=1, min_width=220):
+            gr.HTML('<p class="ff-section-title">Model</p>', elem_classes="ff-th")
+            model_dropdown = gr.Dropdown(
+                choices=_DROPDOWN_LABELS + [_UPLOAD_SENTINEL],
+                value=_DROPDOWN_LABELS[0],
+                label="Select model",
+                interactive=True,
+            )
+            custom_model_upload = gr.File(
+                label="Upload .joblib file",
+                file_types=[".joblib"],
+                visible=False,
             )
 
-        # ── Generate callback ──────────────────────────────────────────
-        def _generate(label, custom_f, data_f):
-            if not data_f:
-                return (
-                    "⚠️ Please upload a dataset CSV.",
-                    gr.update(visible=False),
-                    gr.update(visible=False),
-                    gr.update(visible=True),
-                )
-            png_path, svg_path, msg = _compute_shap_png(label, custom_f, data_f)
-            if png_path is None:
-                return (
-                    msg,
-                    gr.update(visible=False),
-                    gr.update(visible=False),
-                    gr.update(visible=True),
-                )
+            gr.HTML('<hr class="ff-divider">')
+            gr.HTML('<p class="ff-section-title">Dataset</p>', elem_classes="ff-th")
+            data_upload = gr.File(
+                label="Upload CSV",
+                file_types=[".csv", ".tsv"],
+            )
+
+            gr.HTML('<hr class="ff-divider">')
+            run_btn = gr.Button(
+                "📊  Generate SHAP Plot",
+                variant="primary", size="lg",
+                interactive=False,
+            )
+
+        # ── Right main area ────────────────────────────────────────
+        with gr.Column(scale=3):
+            empty_state = gr.HTML(
+                '<div class="ff-empty-state">'
+                '<div style="font-size:1.75rem;margin-bottom:10px">📊</div>'
+                '<p>Select a <strong>model</strong> and upload a <strong>dataset CSV</strong>'
+                ' to generate a global SHAP summary plot</p>'
+                '</div>',
+                visible=True,
+            )
+            status_msg = gr.Markdown("", elem_classes="ff-status")
+            plot_image = gr.Image(
+                label="SHAP Summary Plot",
+                visible=False,
+                interactive=False,
+                elem_classes="ff-shap-plot",
+            )
+            download_btn = gr.DownloadButton(
+                "⬇  Download Plot (SVG)",
+                visible=False, variant="secondary",
+                elem_id="shap-download-btn",
+            )
+
+    # ── Show/hide custom upload when sentinel selected ─────────────
+    def _on_model_change(label, data_f):
+        show_upload = label == _UPLOAD_SENTINEL
+        # Ready if a HF model is selected, OR upload sentinel + file present
+        ready = bool(data_f) and (not show_upload or False)
+        return gr.update(visible=show_upload), gr.update(interactive=ready)
+
+    model_dropdown.change(
+        _on_model_change,
+        inputs=[model_dropdown, data_upload],
+        outputs=[custom_model_upload, run_btn],
+    )
+
+    # ── Enable run button when data + valid model are present ──────
+    def _toggle_run(label, custom_f, data_f):
+        if not data_f:
+            return gr.update(interactive=False)
+        if label == _UPLOAD_SENTINEL and not custom_f:
+            return gr.update(interactive=False)
+        return gr.update(interactive=True)
+
+    for trigger in (model_dropdown, custom_model_upload, data_upload):
+        trigger.change(
+            _toggle_run,
+            inputs=[model_dropdown, custom_model_upload, data_upload],
+            outputs=run_btn,
+        )
+
+    # ── Generate callback ──────────────────────────────────────────
+    def _generate(label, custom_f, data_f):
+        if not data_f:
+            return (
+                "⚠️ Please upload a dataset CSV.",
+                gr.update(visible=False),
+                gr.update(visible=False),
+                gr.update(visible=True),
+            )
+        png_path, svg_path, msg = _compute_shap_png(label, custom_f, data_f)
+        if png_path is None:
             return (
                 msg,
-                gr.update(value=png_path, visible=True),
-                gr.update(value=svg_path, visible=True),
                 gr.update(visible=False),
+                gr.update(visible=False),
+                gr.update(visible=True),
             )
-
-        _outputs = [status_msg, plot_image, download_btn, empty_state]
-
-        run_btn.click(
-            lambda: (
-                "⏳ Computing SHAP values — this may take a moment…",
-                gr.update(visible=False),
-                gr.update(visible=False),
-                gr.update(visible=False),
-            ),
-            outputs=_outputs,
-            queue=False,
-        ).then(
-            _generate,
-            inputs=[model_dropdown, custom_model_upload, data_upload],
-            outputs=_outputs,
+        return (
+            msg,
+            gr.update(value=png_path, visible=True),
+            gr.update(value=svg_path, visible=True),
+            gr.update(visible=False),
         )
+
+    _outputs = [status_msg, plot_image, download_btn, empty_state]
+
+    run_btn.click(
+        lambda: (
+            "⏳ Computing SHAP values — this may take a moment…",
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+        ),
+        outputs=_outputs,
+        queue=False,
+    ).then(
+        _generate,
+        inputs=[model_dropdown, custom_model_upload, data_upload],
+        outputs=_outputs,
+    )
+
+
+def build_shap_tab() -> None:
+    """Build the legacy standalone Explain tab."""
+    with gr.Tab("🔍  Explain"):
+        build_shap_section()

@@ -18,12 +18,15 @@ learning models trained on simulated contamination data.
 
 ## Web UI
 
-The Gradio interface has four tabs:
+The Gradio interface has five tabs:
 
 - **Predict** — upload a CSV (wide or long format) or enter values manually
 - **Train** — train custom models on your own institution's data
 - **Review** — step through predictions and add human labels for QA
-- **Self Test** — validate model performance
+- **Validate** — upload reviewed predictions to explore Sens, Spec, PPV, NPV,
+  F1, ROC/PR AUCs, an interactive threshold-dependent 2×2 table, and calibration;
+  its lower section includes the model Explain (SHAP) tools
+- **Self Test** — practice identifying contaminated specimens with simulated cases
 
 ## Panels
 
