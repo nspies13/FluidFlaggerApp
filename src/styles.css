@@ -673,7 +673,7 @@
 .ff-v-chart-card {
     position: relative;
     min-width: 0;
-    background: linear-gradient(145deg, #ffffff 0%, #fbfdff 100%);
+    background: #ffffff;
     border: 1px solid #dbe5f1;
     border-radius: 16px;
     padding: 18px;
@@ -716,7 +716,7 @@
     width: 100%;
     height: auto;
     overflow: visible;
-    background: linear-gradient(180deg, rgba(248, 250, 252, 0.78), rgba(255, 255, 255, 0));
+    background: #ffffff;
     border-radius: 11px;
 }
 .ff-v-axis-spine {
@@ -754,8 +754,6 @@
     stroke-linecap: round;
     stroke-linejoin: round;
 }
-.ff-v-roc-area { fill: #2563eb; fill-opacity: 0.08; }
-.ff-v-pr-area { fill: #059669; fill-opacity: 0.075; }
 .ff-v-roc-line { stroke: #2563eb; stroke-width: 3.25; }
 .ff-v-pr-line { stroke: #059669; stroke-width: 3.25; }
 .ff-v-calibration-line { stroke: #7c3aed; stroke-width: 2.75; }
@@ -774,9 +772,7 @@
 .ff-v-roc-svg {
     cursor: crosshair;
     touch-action: none;
-    transition: background-color 160ms ease;
 }
-.ff-v-roc-svg:hover { background-color: rgba(239, 246, 255, 0.82); }
 .ff-v-roc-plot {
     position: relative;
 }
@@ -1026,10 +1022,10 @@
 }
 .dark .ff-v-metric-card,
 .dark .ff-v-chart-card {
-    background: linear-gradient(145deg, #1e293b 0%, #182334 100%);
+    background: #1e293b;
     box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
 }
-.dark .ff-v-chart { background: linear-gradient(180deg, rgba(15, 23, 42, 0.64), rgba(15, 23, 42, 0)); }
+.dark .ff-v-chart { background: #0f172a; }
 .dark .ff-v-cohort-summary { color: #cbd5e1; }
 .dark .ff-v-cohort-summary strong,
 .dark .ff-v-threshold-control output { color: #60a5fa; }
@@ -1044,8 +1040,6 @@
 .dark .ff-v-axis-spine,
 .dark .ff-v-axis-tick { stroke: #475569; }
 .dark .ff-v-reference-line { stroke: #64748b; }
-.dark .ff-v-roc-area { fill: #3b82f6; fill-opacity: 0.13; }
-.dark .ff-v-pr-area { fill: #34d399; fill-opacity: 0.12; }
 .dark .ff-v-auc-badge { background: #172554; border-color: #1e40af; color: #93c5fd; }
 .dark .ff-v-inset-title,
 .dark .ff-v-inset th { background: #0f172a; color: #94a3b8; border-color: #334155; }

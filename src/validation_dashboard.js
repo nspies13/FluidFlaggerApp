@@ -70,18 +70,6 @@
         .map((point, index) => (index ? "L" : "M") + x(point[xKey]).toFixed(2) + " " + y(point[yKey]).toFixed(2))
         .join(" ");
 
-    const svgAreaPath = (points, xKey, yKey, x, y, baseline) => {
-        if (!points.length) return "";
-        const first = points[0];
-        const last = points[points.length - 1];
-        const curve = points
-            .map((point) => x(point[xKey]).toFixed(2) + " " + y(point[yKey]).toFixed(2))
-            .join(" L");
-        return "M" + x(first[xKey]).toFixed(2) + " " + baseline.toFixed(2) +
-            " L" + curve +
-            " L" + x(last[xKey]).toFixed(2) + " " + baseline.toFixed(2) + " Z";
-    };
-
     const renderDashboard = (root, data) => {
         const viewWidth = 620;
         const viewHeight = 390;
@@ -95,8 +83,6 @@
         const y = (value) => top + (1 - clamp(value)) * plotHeight;
         const rocPath = svgPath(data.roc, "fpr", "tpr", x, y);
         const prPath = svgPath(data.pr, "recall", "precision", x, y);
-        const rocAreaPath = svgAreaPath(data.roc, "fpr", "tpr", x, y, y(0));
-        const prAreaPath = svgAreaPath(data.pr, "recall", "precision", x, y, y(0));
         const calibrationPath = svgPath(
             data.calibration,
             "mean_predicted",
@@ -166,7 +152,6 @@
             '<svg class="ff-v-chart ff-v-roc-svg" viewBox="0 0 ', viewWidth, ' ', viewHeight,
             '" role="img" aria-label="Interactive ROC curve. Drag the marker to select a threshold.">',
             axisElements,
-            '<path class="ff-v-roc-area" d="', rocAreaPath, '"></path>',
             '<line class="ff-v-reference-line" x1="', x(0), '" y1="', y(0), '" x2="', x(1), '" y2="', y(1), '"></line>',
             '<path class="ff-v-roc-line" d="', rocPath, '"></path>',
             '<circle class="ff-v-roc-marker" data-roc-marker r="7"></circle>',
@@ -198,7 +183,6 @@
             '<svg class="ff-v-chart" viewBox="0 0 ', viewWidth, ' ', viewHeight,
             '" role="img" aria-label="Precision-recall curve">',
             axisElements,
-            '<path class="ff-v-pr-area" d="', prAreaPath, '"></path>',
             '<line class="ff-v-reference-line" x1="', x(0), '" y1="', y(summary.prevalence),
             '" x2="', x(1), '" y2="', y(summary.prevalence), '"></line>',
             '<path class="ff-v-pr-line" d="', prPath, '"></path>',
