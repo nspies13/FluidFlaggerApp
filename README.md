@@ -182,7 +182,7 @@ The response echoes all input fields plus prediction columns for each fluid type
 |---------------|-------------|
 | `prob_{fluid}_{timing}` | Contamination probability (0–1) for a specific fluid and timing |
 | `pred_{fluid}_{timing}` | Classification: `"Contaminated"` (≥0.50) or `"Real"` (<0.50) |
-| `mix_ratio_{fluid}` | Estimated IV-fluid mix ratio (retrospective only) |
+| `mix_ratio_{fluid}` | Estimated IV-fluid mix ratio (0.00-0.50; retrospective only) |
 | `any_realtime_pred` | `true` if any fluid (excluding LR) flagged as Contaminated in realtime |
 | `any_retrospective_pred` | Same for retrospective |
 | `max_realtime_prob` | Highest contamination probability across all fluids (excluding LR) |
@@ -251,9 +251,13 @@ python -m src.train \
   --repo yourname/fluidflagger-models
 ```
 
+Mixture-ratio regressors are trained separately from the binary classifiers on a
+balanced simulated grid: 1,000 specimens at every ratio from 0.00 through 0.50
+in 0.01 increments. BMP models use one grid per fluid; CBC uses one dilution grid.
+
 ## Deployment
 
 This Space is automatically redeployed on every push to `main` via GitHub Actions.
 Model files are stored separately in the
-[fluidflagger-models](https://huggingface.co/nspies13/fluidflagger-models) HF Hub
+[fluidflagger-models](https://huggingface.co/nickspies/fluidflagger-models) HF Hub
 model repository and downloaded lazily on first use.

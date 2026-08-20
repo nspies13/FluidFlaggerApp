@@ -20,6 +20,14 @@ from .features import BMP_ANALYTES, CBC_ANALYTES
 
 _DEFAULT_FLUIDS_PATH = Path(__file__).parent.parent / "data" / "fluid_concentrations.tsv"
 
+# Regression models use a balanced simulation set instead of the classifier's
+# prevalence-oriented binary simulation.  The inclusive grid has 51 levels
+# (0.00, 0.01, ..., 0.50), yielding 51,000 cases per fluid at the default.
+REGRESSION_MIX_RATIO_MIN = 0.0
+REGRESSION_MIX_RATIO_MAX = 0.5
+REGRESSION_MIX_RATIO_STEP = 0.01
+REGRESSION_CASES_PER_RATIO = 1_000
+
 
 def load_fluid_concentrations(path: Optional[str | Path] = None) -> pd.DataFrame:
     """Load fluid concentrations table (fluid, sodium, chloride, ...)."""
@@ -40,6 +48,26 @@ def get_fluid_concentrations() -> pd.DataFrame:
 
 def get_fluid_names() -> list[str]:
     return get_fluid_concentrations()["fluid"].tolist()
+
+
+def make_regression_mix_ratio_grid(
+    cases_per_ratio: int = REGRESSION_CASES_PER_RATIO,
+    *,
+    minimum: float = REGRESSION_MIX_RATIO_MIN,
+    maximum: float = REGRESSION_MIX_RATIO_MAX,
+    step: float = REGRESSION_MIX_RATIO_STEP,
+) -> np.ndarray:
+    """Return a balanced, inclusive mixture-ratio grid for regression training."""
+    if not isinstance(cases_per_ratio, (int, np.integer)) or cases_per_ratio < 1:
+        raise ValueError("cases_per_ratio must be a positive integer")
+    if step <= 0 or maximum < minimum:
+        raise ValueError("mixture-ratio bounds must be ordered and step must be positive")
+
+    levels = np.arange(minimum, maximum + step / 2, step)
+    levels = np.round(levels, 10)
+    if not np.isclose(levels[-1], maximum):
+        raise ValueError("maximum must fall on the requested mixture-ratio grid")
+    return np.repeat(levels, cases_per_ratio)
 
 # ---------------------------------------------------------------------------
 # BMP simulation
@@ -94,6 +122,43 @@ def simulate_bmp_contamination(
     return result
 
 
+def make_regression_training_data_bmp(
+    template_df: pd.DataFrame,
+    fluid_row: pd.Series,
+    seed: int = 123,
+    cases_per_ratio: int = REGRESSION_CASES_PER_RATIO,
+) -> pd.DataFrame:
+    """Create balanced BMP regression data for one IV fluid.
+
+    Every mixture ratio from 0.00 through 0.50, inclusive and in 0.01 steps,
+    receives the same number of simulated specimens.  The baseline specimen is
+    sampled from complete patient rows; sampling with replacement preserves the
+    requested balance when a user-provided template has fewer than 51,000 rows.
+    """
+    all_cols = (
+        BMP_ANALYTES
+        + [f"{c}_prior" for c in BMP_ANALYTES]
+        + [f"{c}_post" for c in BMP_ANALYTES]
+    )
+    missing = [col for col in all_cols if col not in template_df.columns]
+    if missing:
+        raise ValueError(f"BMP regression template is missing required columns: {', '.join(missing)}")
+
+    df = template_df.loc[:, all_cols].copy()
+    for col in all_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=all_cols)
+    df = df[(df[all_cols] > 0).all(axis=1)]
+    if df.empty:
+        raise ValueError("BMP regression template has no complete, positive rows")
+
+    mix_ratios = make_regression_mix_ratio_grid(cases_per_ratio)
+    rng = np.random.default_rng(seed)
+    row_indices = rng.choice(len(df), size=len(mix_ratios), replace=len(df) < len(mix_ratios))
+    input_sample = df.iloc[row_indices].reset_index(drop=True)
+    return simulate_bmp_contamination(input_sample, fluid_row, mix_ratios)
+
+
 def make_binary_training_data_bmp(
     template_df: pd.DataFrame,
     fluid_row: pd.Series,
@@ -144,6 +209,53 @@ def make_binary_training_data_bmp(
 # ---------------------------------------------------------------------------
 # CBC simulation
 # ---------------------------------------------------------------------------
+
+
+def simulate_cbc_contamination(
+    patient_df: pd.DataFrame,
+    mix_ratios: np.ndarray,
+) -> pd.DataFrame:
+    """Simulate CBC dilution while retaining the prior and post patient values."""
+    mix_ratios = np.asarray(mix_ratios, dtype=float)
+    if len(patient_df) != len(mix_ratios):
+        raise ValueError("patient_df and mix_ratios must have the same length")
+
+    result = patient_df.copy()
+    for col in CBC_ANALYTES:
+        if col in result.columns:
+            result[col] = result[col] * (1 - mix_ratios)
+    result["mix_ratio"] = mix_ratios
+    return result
+
+
+def make_regression_training_data_cbc(
+    template_df: pd.DataFrame,
+    seed: int = 123,
+    cases_per_ratio: int = REGRESSION_CASES_PER_RATIO,
+) -> pd.DataFrame:
+    """Create balanced CBC dilution-regression data on the 0.00-0.50 grid."""
+    all_cols = (
+        CBC_ANALYTES
+        + [f"{c}_prior" for c in CBC_ANALYTES]
+        + [f"{c}_post" for c in CBC_ANALYTES]
+    )
+    missing = [col for col in all_cols if col not in template_df.columns]
+    if missing:
+        raise ValueError(f"CBC regression template is missing required columns: {', '.join(missing)}")
+
+    df = template_df.loc[:, all_cols].copy()
+    for col in all_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=all_cols)
+    df = df[(df[all_cols] > 0).all(axis=1)]
+    if df.empty:
+        raise ValueError("CBC regression template has no complete, positive rows")
+
+    mix_ratios = make_regression_mix_ratio_grid(cases_per_ratio)
+    rng = np.random.default_rng(seed)
+    row_indices = rng.choice(len(df), size=len(mix_ratios), replace=len(df) < len(mix_ratios))
+    input_sample = df.iloc[row_indices].reset_index(drop=True)
+    return simulate_cbc_contamination(input_sample, mix_ratios)
 
 def make_binary_training_data_cbc(
     template_df: pd.DataFrame,
@@ -197,10 +309,7 @@ def make_binary_training_data_cbc(
     # they reflect the patient's true physiology (a single contaminated draw).
     # Diluting prior/post by the same factor would preserve every ratio and
     # strip all contamination signal from the log-delta features.
-    for col in CBC_ANALYTES:
-        if col in contam.columns:
-            contam[col] = contam[col] * (1 - mix_ratios)
-    contam["mix_ratio"] = mix_ratios
+    contam = simulate_cbc_contamination(contam, mix_ratios)
     contam["target"] = 1
 
     combined = pd.concat([clean, contam], ignore_index=True)

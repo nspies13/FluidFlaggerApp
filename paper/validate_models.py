@@ -17,13 +17,15 @@ Outputs (written next to the LaTeX source in paper/files/):
   validation_silver_metrics.csv    metrics vs retrospective reference (full set)
   validation_dataset_summary.csv   cohort sizes / prevalence
   validation_roc_pr.pdf            2x2 ROC (top) + PR (bottom) for BMP & CBC
-  validation_score_dist.pdf        score by expert label for BMP & CBC
+  validation_score_dist.pdf        Figure 2: raincloud distributions of scores
+                                   and BMP/CBC mixture ratios by outcome
   validation_tables.tex            LaTeX table fragments (\input-able)
 """
 from __future__ import annotations
 
 import sys
 import warnings
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -124,8 +126,10 @@ def evaluate(y_raw, s_raw, label, thr=THRESHOLD, bootstrap=True):
 # ---------------------------------------------------------------------------
 
 
-def score_bmp():
+def score_bmp(expert_reviewed_only: bool = False):
     df = pd.read_csv(DATA / "bmp_validation_set.csv")
+    if expert_reviewed_only:
+        df = df.loc[pd.to_numeric(df["expert_review_prediction"], errors="coerce").notna()].copy()
     expert = pd.to_numeric(df["expert_review_prediction"], errors="coerce").values
     ref_retro = pd.to_numeric(df["max_retrospective_prob"], errors="coerce").values
     ref_rt = pd.to_numeric(df["max_realtime_prob"], errors="coerce").values
@@ -135,13 +139,16 @@ def score_bmp():
         "expert": expert,
         "ff_real-time": res["max_realtime_prob"].values,
         "ff_retro": res["max_retrospective_prob"].values,
+        "ff_mix_ratio": res["max_mix_ratio"].values,
         "ref_retro": ref_retro,
         "ref_real-time": ref_rt,
     }
 
 
-def score_cbc():
+def score_cbc(expert_reviewed_only: bool = False):
     df = pd.read_csv(DATA / "cbc_validation_set.csv")
+    if expert_reviewed_only:
+        df = df.loc[df["expert_review_prediction"].notna()].copy()
     exp_raw = df["expert_review_prediction"].astype("string").str.upper()
     expert = np.where(exp_raw.isna(), np.nan,
                       (exp_raw == "T").astype(float))
@@ -152,6 +159,7 @@ def score_cbc():
         "expert": expert,
         "ff_real-time": res["max_realtime_prob"].values,
         "ff_retro": res["max_retrospective_prob"].values,
+        "ff_mix_ratio": res.get("mix_ratio_CBC", pd.Series(np.nan, index=res.index)).values,
         "ref_retro": ref_retro,
         "ref_real-time": None,
     }
@@ -480,92 +488,208 @@ def plot_roc_pr(scored):
 
 
 def plot_score_dist(scored):
-    from plotnine import (
-        aes,
-        coord_cartesian,
-        facet_wrap,
-        geom_boxplot,
-        geom_hline,
-        geom_point,
-        geom_violin,
-        ggplot,
-        guide_legend,
-        guides,
-        labs,
-        position_dodge,
-        position_jitterdodge,
-        scale_color_manual,
-        scale_fill_manual,
-        scale_y_continuous,
-        theme,
-    )
+    """Create Figure 2 as horizontal raincloud plots.
 
-    _setup_plotnine()
-    dist = _score_distribution_frame(scored)
-    dodge = position_dodge(width=0.74)
+    The top row shows FluidFlagger contamination outputs by expert label.
+    The bottom row shows estimated mixture ratios by retrospective classification
+    outcome for both BMP and CBC at the manuscript operating threshold.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
 
-    p = (
-        ggplot(dist, aes("mode", "score"))
-        + geom_violin(
-            aes(fill="expert_label"),
-            position=dodge,
-            width=0.78,
-            alpha=0.28,
-            trim=False,
-            scale="width",
-            color="#555555",
-            size=0.25,
+    score_colours = {"Real": "#D55E00", "Contaminated": "#0072B2"}
+    outcome_colours = {
+        "True positive": "#0072B2",
+        "False positive": "#CC79A7",
+        "True negative": "#009E73",
+        "False negative": "#D55E00",
+    }
+    rng = np.random.default_rng(RNG_SEED)
+    fig = plt.figure(figsize=(7.45, 8.2), constrained_layout=True)
+    grid = fig.add_gridspec(2, 2, hspace=0.15, wspace=0.20)
+    axes = [
+        fig.add_subplot(grid[0, 0]),
+        fig.add_subplot(grid[0, 1]),
+        fig.add_subplot(grid[1, 0]),
+        fig.add_subplot(grid[1, 1]),
+    ]
+
+    def _style_axis(axis):
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.spines[["left", "bottom"]].set_color("#9CA3AF")
+        axis.spines[["left", "bottom"]].set_linewidth(0.65)
+        axis.tick_params(axis="x", length=3, width=0.65, labelsize=8.5, colors="#4A4A4A")
+        axis.tick_params(axis="y", length=0, labelsize=8.2, colors="#4A4A4A", pad=4)
+        axis.grid(False)
+
+    def _draw_raincloud(
+        axis,
+        values,
+        positions,
+        colours,
+        labels,
+        *,
+        title,
+        x_label,
+        threshold=False,
+        x_max=1.0,
+    ):
+        """Draw horizontal half-violin, boxplot, and jittered-point rainclouds."""
+        for current, position, colour in zip(values, positions, colours):
+            current = np.asarray(current, dtype=float)
+            current = current[np.isfinite(current)]
+            if not len(current):
+                continue
+
+            violin = axis.violinplot(
+                [current],
+                positions=[position],
+                vert=False,
+                widths=0.72,
+                showmedians=False,
+                showextrema=False,
+            )
+            body = violin["bodies"][0]
+            body.set_facecolor(colour)
+            body.set_edgecolor("#334155")
+            body.set_alpha(0.30)
+            body.set_linewidth(0.55)
+            # Retain the upper half of the horizontal violin as the "cloud".
+            body.get_paths()[0].vertices[:, 1] = np.maximum(
+                body.get_paths()[0].vertices[:, 1], position
+            )
+
+            box = axis.boxplot(
+                [current],
+                vert=False,
+                positions=[position],
+                widths=0.14,
+                patch_artist=True,
+                showfliers=False,
+                medianprops={"color": "#1F2937", "linewidth": 1.0},
+                boxprops={"linewidth": 0.55, "edgecolor": "#334155"},
+                whiskerprops={"linewidth": 0.55, "color": "#475569"},
+                capprops={"linewidth": 0.55, "color": "#475569"},
+            )
+            box["boxes"][0].set_facecolor(colour)
+            box["boxes"][0].set_alpha(0.82)
+
+            plotted = current if len(current) <= 350 else rng.choice(current, 350, replace=False)
+            axis.scatter(
+                plotted,
+                position - rng.uniform(0.12, 0.34, size=len(plotted)),
+                s=4,
+                color=colour,
+                alpha=0.20,
+                linewidths=0,
+            )
+
+        axis.set_xlim(-0.02, x_max + 0.02)
+        if x_max <= 0.5:
+            axis.set_xticks(np.arange(0, x_max + 0.001, 0.1), [f"{tick:.2f}" for tick in np.arange(0, x_max + 0.001, 0.1)])
+        else:
+            axis.set_xticks([0, 0.25, 0.5, THRESHOLD, 1], ["0.00", "0.25", "0.50", "0.75", "1.00"])
+        axis.set_ylim(min(positions) - 0.52, max(positions) + 0.54)
+        axis.set_yticks(positions, labels)
+        axis.set_xlabel(x_label, fontsize=9.5, fontweight="bold", labelpad=5)
+        axis.set_title(title, fontsize=11.5, fontweight="bold", pad=8)
+        if threshold:
+            axis.axvline(THRESHOLD, color="#475569", linestyle=(0, (4, 3)), linewidth=0.85, zorder=0)
+        _style_axis(axis)
+
+    def _score_groups(data):
+        expert = np.asarray(data["expert"], dtype=float)
+        score_groups = []
+        for score in (data["ff_real-time"], data["ff_retro"]):
+            score = np.asarray(score, dtype=float)
+            for label_value in (0, 1):
+                mask = np.isfinite(expert) & np.isfinite(score) & (expert == label_value)
+                score_groups.append(np.clip(score[mask], 0, 1))
+        return score_groups
+
+    def _mixture_groups(data):
+        expert = np.asarray(data["expert"], dtype=float)
+        score = np.asarray(data["ff_retro"], dtype=float)
+        estimate = np.asarray(data["ff_mix_ratio"], dtype=float)
+        valid = np.isfinite(expert) & np.isfinite(score) & np.isfinite(estimate)
+        expert = expert[valid].astype(int)
+        prediction = (score[valid] >= THRESHOLD).astype(int)
+        estimate = np.clip(estimate[valid], 0, 1)
+        outcome_masks = [
+            (expert == 1) & (prediction == 1),
+            (expert == 0) & (prediction == 1),
+            (expert == 0) & (prediction == 0),
+            (expert == 1) & (prediction == 0),
+        ]
+        return [estimate[mask] for mask in outcome_masks]
+
+    panel_map = {data["panel"]: data for data in scored}
+    score_positions = np.array([4.25, 3.25, 1.75, 0.75])
+    score_labels = [
+        "RT · Real",
+        "RT · Contam.",
+        "Retro · Real",
+        "Retro · Contam.",
+    ]
+    score_colours_ordered = [
+        score_colours["Real"],
+        score_colours["Contaminated"],
+        score_colours["Real"],
+        score_colours["Contaminated"],
+    ]
+    for axis, panel in zip(axes[:2], ("BMP", "CBC")):
+        _draw_raincloud(
+            axis,
+            _score_groups(panel_map[panel]),
+            score_positions,
+            score_colours_ordered,
+            score_labels,
+            title=f"{panel} contamination output",
+            x_label="FluidFlagger output",
+            threshold=True,
         )
-        + geom_boxplot(
-            aes(fill="expert_label"),
-            position=dodge,
-            width=0.22,
-            outlier_shape=None,
-            alpha=0.82,
-            color="#333333",
-            size=0.25,
+
+    outcome_positions = np.array([4.0, 3.0, 2.0, 1.0])
+    outcome_names = ["True positive", "False positive", "True negative", "False negative"]
+    outcome_abbreviations = ["TP", "FP", "TN", "FN"]
+    for axis, panel in zip(axes[2:], ("BMP", "CBC")):
+        values = _mixture_groups(panel_map[panel])
+        labels = [f"{label}  (n={len(current):,})" for label, current in zip(outcome_abbreviations, values)]
+        _draw_raincloud(
+            axis,
+            values,
+            outcome_positions,
+            [outcome_colours[name] for name in outcome_names],
+            labels,
+            title=f"{panel} estimated mixture ratio",
+            x_label="Estimated mixture ratio",
+            x_max=0.50,
         )
-        + geom_point(
-            aes(color="expert_label"),
-            position=position_jitterdodge(
-                jitter_width=0.2,
-                jitter_height=0,
-                dodge_width=0.74,
-                random_state=RNG_SEED,
-            ),
-            size=1.5,
-            alpha=0.5,
-            stroke=0,
-            show_legend=False,
-        )
-        + geom_hline(
-            yintercept=THRESHOLD,
-            linetype="dashed",
-            color="#4A4A4A",
-            size=0.55,
-        )
-        + facet_wrap("panel", nrow=1)
-        + scale_y_continuous(
-            breaks=[0, 0.25, 0.50, THRESHOLD, 1.0],
-            labels=["0.00", "0.25", "0.50", "0.75", "1.00"],
-        )
-        + coord_cartesian(ylim=(-0.02, 1.02))
-        + scale_fill_manual(values=EXPERT_COLORS)
-        + scale_color_manual(values=EXPERT_COLORS)
-        + guides(fill=guide_legend(nrow=1, byrow=True), color=False)
-        + labs(
-            x="Feature Set",
-            y="Contamination Probability",
-            fill="Expert Label",
-        )
-        + theme(
-            figure_size=(7.2, 3.8),
-            legend_position="top",
-            legend_direction="horizontal",
-            panel_spacing=0.08,
-        )
+        for current, position in zip(values, outcome_positions):
+            if not len(current):
+                axis.text(0.02, position, "No observations", fontsize=7.5, color="#64748B", va="center")
+
+    fig.legend(
+        handles=[Patch(facecolor=score_colours[label], edgecolor="#334155", alpha=0.58, label=label)
+                 for label in ["Real", "Contaminated"]],
+        title="Expert label",
+        frameon=False,
+        ncol=2,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.045),
+        fontsize=8.7,
+        title_fontsize=8.7,
+        handlelength=1.2,
+        columnspacing=1.4,
     )
-    _save_plotnine(p, "validation_score_dist", width=7.2, height=3.8)
+    for axis, label in zip(axes, ("A", "B", "C", "D")):
+        axis.text(-0.17, 1.065, label, transform=axis.transAxes, fontsize=12, fontweight="bold")
+
+    fig.savefig(OUT / "validation_score_dist.pdf", bbox_inches="tight", dpi=300, facecolor="white")
+    fig.savefig(OUT / "validation_score_dist.png", bbox_inches="tight", dpi=300, facecolor="white")
+    fig.savefig(OUT / "validation_score_dist.jpg", bbox_inches="tight", dpi=300, facecolor="white")
+    fig.savefig(OUT / "validation_score_dist.svg", bbox_inches="tight", facecolor="white")
+    plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -657,8 +781,34 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
 
 
 def main():
+    global OUT
+    parser = argparse.ArgumentParser(description="Validate FluidFlagger models and generate manuscript figures.")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=OUT,
+        help="Directory for generated metrics, tables, and figures.",
+    )
+    parser.add_argument(
+        "--figure-2-only",
+        action="store_true",
+        help="Generate only Figure 2 from expert-reviewed specimens.",
+    )
+    args = parser.parse_args()
+    OUT = args.output_dir
+    OUT.mkdir(parents=True, exist_ok=True)
+
     print("Loading local models ...", flush=True)
     load_models_from_dir(REPO / "models")
+    if args.figure_2_only:
+        print("Scoring expert-reviewed BMP specimens for Figure 2 ...", flush=True)
+        bmp = score_bmp(expert_reviewed_only=True)
+        print("Scoring expert-reviewed CBC specimens for Figure 2 ...", flush=True)
+        cbc = score_cbc(expert_reviewed_only=True)
+        plot_score_dist([bmp, cbc])
+        print(f"Saved Figure 2 to {OUT / 'validation_score_dist.pdf'}", flush=True)
+        return
+
     print("Scoring BMP validation set ...", flush=True)
     bmp = score_bmp()
     print("Scoring CBC validation set ...", flush=True)
@@ -669,7 +819,6 @@ def main():
     gold = gold_metrics(scored)
     silver = silver_metrics(scored)
 
-    OUT.mkdir(parents=True, exist_ok=True)
     summ.to_csv(OUT / "validation_dataset_summary.csv", index=False)
     gold.to_csv(OUT / "validation_gold_metrics.csv", index=False)
     silver.to_csv(OUT / "validation_silver_metrics.csv", index=False)

@@ -276,7 +276,7 @@ def _render_chart_images(payload: dict[str, Any], report_dir: Path) -> dict[str,
     )
     ax.scatter(x_values, y_values, s=sizes, color=_PURPLE, edgecolor="white", linewidth=1.1, zorder=3)
     ax.set(
-        xlabel="Mean predicted probability",
+        xlabel="Mean predicted output",
         ylabel="Observed contamination rate",
         xlim=(0, 1),
         ylim=(0, 1),

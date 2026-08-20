@@ -29,7 +29,7 @@ def _load_joblib(path):
 # Configuration
 # ---------------------------------------------------------------------------
 
-HF_REPO_ID = os.environ.get("HF_MODEL_REPO", "nspies13/fluidflagger-models")
+HF_REPO_ID = os.environ.get("HF_MODEL_REPO", "nickspies/fluidflagger-models")
 
 # Module-level cache: model_key → loaded model dict
 _cache: dict[str, dict] = {}

@@ -70,7 +70,7 @@ def bmp_models_in_cache():
     fluids = load_fluid_concentrations()
     ns_fluids = fluids[fluids["fluid"] == "NS"]
     df = _make_synthetic_bmp_df(n=60)
-    models = train_bmp_models(df, fluids_df=ns_fluids)
+    models = train_bmp_models(df, fluids_df=ns_fluids, regression_cases_per_ratio=2)
     for m in models:
         cache_model(model_key(m), m)
     yield models
@@ -82,7 +82,7 @@ def cbc_models_in_cache():
     """Train tiny CBC models and load into cache."""
     clear_cache()
     df = _make_synthetic_cbc_df(n=60)
-    models = train_cbc_models(df)
+    models = train_cbc_models(df, regression_cases_per_ratio=2)
     for m in models:
         cache_model(model_key(m), m)
     yield models
@@ -123,6 +123,14 @@ def test_bmp_pred_labels_valid(bmp_models_in_cache):
             assert val in valid_labels, f"Unexpected label: {val}"
 
 
+def test_bmp_mix_ratios_are_bounded(bmp_models_in_cache):
+    result = make_bmp_predictions(_make_synthetic_bmp_df(n=10), selected_fluids=["NS"])
+    mix_columns = [column for column in result if column.startswith("mix_ratio_")]
+    assert mix_columns
+    for column in mix_columns:
+        assert result[column].dropna().between(0.0, 0.50).all()
+
+
 def test_bmp_na_rows_give_na_predictions(bmp_models_in_cache):
     df = _make_synthetic_bmp_df(n=3)
     # Set one row's prior values to NaN → realtime should still work, retro → NA
@@ -159,6 +167,11 @@ def test_cbc_predictions_has_expected_columns(cbc_models_in_cache):
     result = make_cbc_predictions(df)
     assert any("prob_CBC" in c for c in result.columns)
     assert any("pred_CBC" in c for c in result.columns)
+
+
+def test_cbc_mix_ratio_is_bounded(cbc_models_in_cache):
+    result = make_cbc_predictions(_make_synthetic_cbc_df(n=10))
+    assert result["mix_ratio_CBC"].dropna().between(0.0, 0.50).all()
 
 
 def test_cbc_no_models_raises(monkeypatch):

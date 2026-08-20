@@ -33,9 +33,12 @@ from .features import (
 )
 from .model_loader import model_key
 from .simulate import (
+    REGRESSION_CASES_PER_RATIO,
     get_fluid_concentrations,
     make_binary_training_data_bmp,
     make_binary_training_data_cbc,
+    make_regression_training_data_bmp,
+    make_regression_training_data_cbc,
 )
 
 # ---------------------------------------------------------------------------
@@ -189,6 +192,7 @@ def train_bmp_fluid(
     n_rows: int,
     seed: int = 123,
     n_inner_jobs: Optional[int] = None,
+    regression_cases_per_ratio: int = REGRESSION_CASES_PER_RATIO,
 ) -> list[dict]:
     """Train all models (retrospective clf, realtime clf, mix ratio reg) for one BMP fluid.
 
@@ -225,13 +229,21 @@ def train_bmp_fluid(
         joblib.delayed(_train_bmp_clf)("realtime", fluid_name, X_realtime, X_realtime_t, y, n_rows, n_inner_jobs),
     ]
 
-    contam_mask = train_df["target"] == 1
-    if contam_mask.sum() > 10:
-        X_mix = train_df.loc[contam_mask, retro_cols]
-        y_mix = train_df.loc[contam_mask, "mix_ratio"].fillna(0).values
-        mix_transformer = BMPFeatureTransformer(mode="retrospective")
-        X_mix_t = mix_transformer.fit_transform(X_mix, y_mix)
-        tasks.append(joblib.delayed(_train_bmp_mix)(fluid_name, X_mix, X_mix_t, y_mix, n_rows, n_inner_jobs))
+    regression_df = make_regression_training_data_bmp(
+        template,
+        fluid_row,
+        seed=seed,
+        cases_per_ratio=regression_cases_per_ratio,
+    )
+    X_mix = regression_df[retro_cols]
+    y_mix = regression_df["mix_ratio"].values
+    mix_transformer = BMPFeatureTransformer(mode="retrospective")
+    X_mix_t = mix_transformer.fit_transform(X_mix, y_mix)
+    tasks.append(
+        joblib.delayed(_train_bmp_mix)(
+            fluid_name, X_mix, X_mix_t, y_mix, len(regression_df), n_inner_jobs
+        )
+    )
 
     N = _available_cores()
     return joblib.Parallel(n_jobs=min(len(tasks), N))(tasks)
@@ -241,6 +253,7 @@ def train_bmp_models(
     template_df: pd.DataFrame,
     fluids_df: Optional[pd.DataFrame] = None,
     seed: int = 123,
+    regression_cases_per_ratio: int = REGRESSION_CASES_PER_RATIO,
 ) -> list[dict]:
     """
     Train all BMP contamination models: 9 fluids × 2 timings (Realtime, Retrospective).
@@ -270,7 +283,16 @@ def train_bmp_models(
 
     models = []
     for _, fluid_row in fluids_df.iterrows():
-        models.extend(train_bmp_fluid(template, fluid_row, n_rows, seed=seed, n_inner_jobs=n_inner))
+        models.extend(
+            train_bmp_fluid(
+                template,
+                fluid_row,
+                n_rows,
+                seed=seed,
+                n_inner_jobs=n_inner,
+                regression_cases_per_ratio=regression_cases_per_ratio,
+            )
+        )
     return models
 
 # ---------------------------------------------------------------------------
@@ -281,6 +303,7 @@ def train_cbc_models(
     template_df: pd.DataFrame,
     seed: int = 123,
     train_mix: bool = True,
+    regression_cases_per_ratio: int = REGRESSION_CASES_PER_RATIO,
 ) -> list[dict]:
     """
     Train CBC contamination models: Realtime + Retrospective + optional mix ratio.
@@ -334,13 +357,20 @@ def train_cbc_models(
     ]
 
     if train_mix:
-        contam_mask = train_df["target"] == 1
-        if contam_mask.sum() > 10:
-            X_mix = train_df.loc[contam_mask, retro_cols]
-            y_mix = train_df.loc[contam_mask, "mix_ratio"].values
-            mix_transformer = CBCFeatureTransformer(mode="retrospective")
-            X_mix_t = mix_transformer.fit_transform(X_mix, y_mix)
-            tasks.append(joblib.delayed(_train_cbc_mix)(X_mix, X_mix_t, y_mix, n_rows, n_inner))
+        regression_df = make_regression_training_data_cbc(
+            template,
+            seed=seed,
+            cases_per_ratio=regression_cases_per_ratio,
+        )
+        X_mix = regression_df[retro_cols]
+        y_mix = regression_df["mix_ratio"].values
+        mix_transformer = CBCFeatureTransformer(mode="retrospective")
+        X_mix_t = mix_transformer.fit_transform(X_mix, y_mix)
+        tasks.append(
+            joblib.delayed(_train_cbc_mix)(
+                X_mix, X_mix_t, y_mix, len(regression_df), n_inner
+            )
+        )
 
     return joblib.Parallel(n_jobs=min(len(tasks), N))(tasks)
 

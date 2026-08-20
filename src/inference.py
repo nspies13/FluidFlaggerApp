@@ -30,6 +30,7 @@ from .model_loader import (
 # ---------------------------------------------------------------------------
 
 _CONTAM_THRESHOLD = 0.50
+_MIX_RATIO_RANGE = (0.0, 0.50)
 
 
 def label_pred_class(prob: float) -> Optional[str]:
@@ -148,8 +149,9 @@ def make_bmp_predictions(
             pipeline = mix_dict["pipeline"]
             X = df[[c for c in retro_cols if c in df.columns]].copy()
             na_mask = num_na_retro.values.astype(bool)
-            mix_cols[f"mix_ratio_{fluid}"] = _predict_chunked(
-                pipeline, X, na_mask, len(df), chunk_size, predict_proba=False
+            mix_cols[f"mix_ratio_{fluid}"] = np.clip(
+                _predict_chunked(pipeline, X, na_mask, len(df), chunk_size, predict_proba=False),
+                *_MIX_RATIO_RANGE,
             )
 
     if not prob_cols and not pred_cols:
@@ -268,8 +270,9 @@ def make_cbc_predictions(
         pipeline = mix_dict["pipeline"]
         X = df[[c for c in retro_cols if c in df.columns]].copy()
         na_mask = num_na_retro.values.astype(bool)
-        mix_ratio = _predict_chunked(
-            pipeline, X, na_mask, len(df), chunk_size, predict_proba=False
+        mix_ratio = np.clip(
+            _predict_chunked(pipeline, X, na_mask, len(df), chunk_size, predict_proba=False),
+            *_MIX_RATIO_RANGE,
         )
 
     if not prob_cols and not pred_cols:
