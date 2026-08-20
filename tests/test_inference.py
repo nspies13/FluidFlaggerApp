@@ -23,15 +23,15 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 # ---------------------------------------------------------------------------
 
 def test_label_contaminated():
-    # Spec: contaminated when p >= 0.50.
-    assert label_pred_class(0.5) == "Contaminated"
+    # Spec: contaminated when p >= 0.25.
+    assert label_pred_class(0.25) == "Contaminated"
     assert label_pred_class(0.76) == "Contaminated"
     assert label_pred_class(1.0) == "Contaminated"
 
 
 def test_label_real():
     assert label_pred_class(0.0) == "Real"
-    assert label_pred_class(0.49) == "Real"
+    assert label_pred_class(0.24) == "Real"
 
 
 def test_label_none():

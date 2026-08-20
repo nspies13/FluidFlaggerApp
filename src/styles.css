@@ -797,15 +797,6 @@
     /* The inset must not block threshold dragging on the ROC underneath. */
     pointer-events: none;
 }
-.ff-v-inset-title {
-    padding: 6px 8px 5px;
-    color: #1e3a8a;
-    background: #eff6ff;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 0.64rem;
-    font-weight: 700;
-    text-align: center;
-}
 .ff-v-inset table {
     width: 100%;
     border-collapse: collapse;
@@ -1041,10 +1032,8 @@
 .dark .ff-v-axis-tick { stroke: #475569; }
 .dark .ff-v-reference-line { stroke: #64748b; }
 .dark .ff-v-auc-badge { background: #172554; border-color: #1e40af; color: #93c5fd; }
-.dark .ff-v-inset-title,
 .dark .ff-v-inset th { background: #0f172a; color: #94a3b8; border-color: #334155; }
 .dark .ff-v-inset td { border-color: #334155; }
-.dark .ff-v-inset-title { color: #93c5fd; }
 .dark .ff-v-threshold-control { background: #0f172a; border-color: #334155; }
 .dark .ff-v-legend { background: #0f172a; border-color: #334155; }
 .dark .ff-v-client-error { background: #1c0505; border-color: #991b1b; color: #fca5a5; }

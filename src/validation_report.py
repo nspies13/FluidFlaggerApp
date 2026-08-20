@@ -1,7 +1,7 @@
 """Exportable HTML and PDF reports for Validate-tab performance results.
 
 The browser dashboard is interactive, while these reports capture the current
-server-side operating point (normally the production threshold of 0.50) in a
+server-side operating point (normally the production threshold of 0.25) in a
 portable, self-contained format.  They intentionally include only aggregate
 validation results, never the uploaded patient-level rows.
 """

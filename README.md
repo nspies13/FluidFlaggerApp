@@ -181,7 +181,7 @@ The response echoes all input fields plus prediction columns for each fluid type
 | Field pattern | Description |
 |---------------|-------------|
 | `prob_{fluid}_{timing}` | Contamination probability (0–1) for a specific fluid and timing |
-| `pred_{fluid}_{timing}` | Classification: `"Contaminated"` (≥0.50) or `"Real"` (<0.50) |
+| `pred_{fluid}_{timing}` | Classification: `"Contaminated"` (≥0.25) or `"Real"` (<0.25) |
 | `mix_ratio_{fluid}` | Estimated IV-fluid mix ratio (0.00-0.50; retrospective only) |
 | `any_realtime_pred` | `true` if any fluid (excluding LR) flagged as Contaminated in realtime |
 | `any_retrospective_pred` | Same for retrospective |

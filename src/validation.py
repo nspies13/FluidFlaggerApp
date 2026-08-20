@@ -20,9 +20,9 @@ from sklearn.metrics import (
 
 
 # Validate reports the app's binary operating point: probabilities at or above
-# 0.50 are positive. Keep the numeric value local so validation remains usable
+# 0.25 are positive. Keep the numeric value local so validation remains usable
 # independently of the prediction UI.
-DEFAULT_THRESHOLD = 0.50
+DEFAULT_THRESHOLD = 0.25
 MAX_RENDER_CURVE_POINTS = 2_000
 
 
@@ -272,8 +272,8 @@ def operating_metrics(
     """Calculate a binary confusion matrix and threshold-dependent metrics.
 
     A score greater than or equal to the threshold is counted as contaminated.
-    Validate uses a binary 0.50 default operating point, so a probability of
-    exactly 0.50 is a positive prediction.
+    Validate uses a binary 0.25 default operating point, so a probability of
+    exactly 0.25 is a positive prediction.
     """
     if not 0 <= threshold <= 1:
         raise ValidationDataError("Threshold must be between 0 and 1.")

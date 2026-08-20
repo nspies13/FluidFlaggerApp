@@ -161,7 +161,6 @@
             '" text-anchor="middle" transform="rotate(-90 16 ', top + plotHeight / 2, ')">Sensitivity</text>',
             '</svg>',
             '<div class="ff-v-inset" aria-label="Binary classification table">',
-            '<div class="ff-v-inset-title">2 × 2 at <span data-threshold>—</span></div>',
             '<table><thead><tr><th></th><th colspan="2">Predicted</th></tr>',
             '<tr><th>Truth</th><th>Real</th><th>Contam.</th></tr></thead>',
             '<tbody><tr><th>Real</th><td data-count="tn">—</td><td data-count="fp">—</td></tr>',

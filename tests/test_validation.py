@@ -79,11 +79,11 @@ def test_operating_metrics_calculates_all_requested_measures():
 
 def test_operating_metrics_uses_inclusive_default_threshold_boundary():
     labels = pd.Series([1, 1, 0]).to_numpy()
-    scores = pd.Series([0.51, 0.50, 0.49]).to_numpy()
+    scores = pd.Series([0.26, 0.25, 0.24]).to_numpy()
 
     metrics = operating_metrics(labels, scores)
 
-    assert DEFAULT_THRESHOLD == pytest.approx(0.50)
+    assert DEFAULT_THRESHOLD == pytest.approx(0.25)
     # A probability exactly at the Validate operating point is positive.
     assert {key: metrics[key] for key in ("tp", "fp", "tn", "fn")} == {
         "tp": 2,
@@ -96,7 +96,7 @@ def test_operating_metrics_uses_inclusive_default_threshold_boundary():
 def test_payload_has_curves_auc_calibration_and_binary_table():
     df = pd.DataFrame(
         {
-            "max_realtime_prob": [0.95, 0.83, 0.43, 0.08],
+            "max_realtime_prob": [0.95, 0.83, 0.20, 0.08],
             "human_label": ["T", 1, "F", 0],
         }
     )
@@ -111,12 +111,12 @@ def test_payload_has_curves_auc_calibration_and_binary_table():
     assert payload["pr"]
     assert payload["calibration"]
     assert all("threshold" in point for point in payload["roc"])
-    assert payload["threshold"] == pytest.approx(0.50)
+    assert payload["threshold"] == pytest.approx(0.25)
     assert payload["threshold_rule"] == "score >= threshold"
 
     # The compact operating arrays power browser-side threshold updates.
     thresholds = payload["operating"]["thresholds"]
-    selected = min(index for index, value in enumerate(thresholds) if value >= 0.50)
+    selected = min(index for index, value in enumerate(thresholds) if value >= 0.25)
     assert payload["operating"]["tp"][selected] == 2
     assert payload["operating"]["fp"][selected] == 0
 
@@ -124,7 +124,7 @@ def test_payload_has_curves_auc_calibration_and_binary_table():
 def test_compact_operating_points_match_every_slider_interval_and_boundary():
     df = pd.DataFrame(
         {
-            "max_realtime_prob": [0.95, 0.83, 0.50, 0.43, 0.08],
+            "max_realtime_prob": [0.95, 0.83, 0.50, 0.25, 0.08],
             "human_label": ["Contaminated", "Real", "Contaminated", "Real", "Real"],
         }
     )
@@ -133,8 +133,8 @@ def test_compact_operating_points_match_every_slider_interval_and_boundary():
     operating = payload["operating"]
 
     # These values cover each side of an observed score as well as the
-    # inclusive 0.500 boundary a 0.001-step slider can produce.
-    for threshold in (0.0, 0.079, 0.08, 0.081, 0.429, 0.43, 0.499, 0.50, 0.501, 0.829, 0.83, 0.831, 0.95, 0.951, 1.0):
+    # inclusive 0.250 boundary a 0.001-step slider can produce.
+    for threshold in (0.0, 0.079, 0.08, 0.081, 0.249, 0.25, 0.251, 0.429, 0.43, 0.499, 0.50, 0.501, 0.829, 0.83, 0.831, 0.95, 0.951, 1.0):
         selected = min(
             index
             for index, cached_threshold in enumerate(operating["thresholds"])

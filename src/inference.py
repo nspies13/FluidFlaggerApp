@@ -4,7 +4,7 @@ BMP and CBC prediction functions.
 Ports makeBmpPredictions() from bmp_helpers.R and
 makeCbcPredictions() from cbc_helpers.R.
 
-Predicted labels are binary: probabilities of 0.50 or higher are
+Predicted labels are binary: probabilities of 0.25 or higher are
 classified as contaminated; lower probabilities are classified as real.
 
 """
@@ -29,7 +29,7 @@ from .model_loader import (
 # Prediction labelling
 # ---------------------------------------------------------------------------
 
-_CONTAM_THRESHOLD = 0.50
+_CONTAM_THRESHOLD = 0.25
 _MIX_RATIO_RANGE = (0.0, 0.50)
 
 

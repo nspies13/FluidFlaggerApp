@@ -1232,7 +1232,13 @@ def build_validate_tab() -> None:
             validation_pdf_download,
         ]
         for trigger in (label_column, score_column):
-            trigger.change(
+            # ``.change`` also fires when `_load_validation_file` assigns the
+            # detected defaults.  The two assignments can arrive separately,
+            # causing an intermediate refresh with one empty selection to hide
+            # the dashboard that the upload callback just rendered.  ``.input``
+            # is limited to deliberate user edits, while the upload callback
+            # remains responsible for the initial dashboard.
+            trigger.input(
                 _refresh_validation,
                 inputs=_refresh_inputs,
                 outputs=_refresh_outputs,

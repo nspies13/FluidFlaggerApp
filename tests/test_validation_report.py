@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from src.validation import build_validation_payload
 from src.validation_report import build_validation_report_files
@@ -19,8 +20,8 @@ def test_build_validation_report_files_creates_self_contained_html_and_pdf(tmp_p
         dataframe,
         score_column="max_retrospective_prob",
         label_column="human_label",
-        threshold=0.5,
     )
+    assert payload["threshold"] == pytest.approx(0.25)
 
     html_path, pdf_path = build_validation_report_files(payload, output_dir=tmp_path)
 
@@ -35,5 +36,5 @@ def test_build_validation_report_files_creates_self_contained_html_and_pdf(tmp_p
     assert "2 x 2 classification table" in report_html
     assert "data:image/png;base64," in report_html
     assert "max_retrospective_prob" in report_html
-    assert "Performance at threshold 0.500" in report_html
+    assert "Performance at threshold 0.250" in report_html
     assert len(list(tmp_path.glob("*.png"))) == 3
