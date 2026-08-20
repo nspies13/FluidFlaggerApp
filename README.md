@@ -10,254 +10,235 @@ pinned: false
 
 # FluidFlagger
 
-**IV-fluid contamination detection for BMP and CBC laboratory results.**
+FluidFlagger is a Gradio application for detecting possible intravenous-fluid
+contamination in basic metabolic panel (BMP) and complete blood count (CBC)
+results. It supports prediction, local model training, expert review, performance
+validation, and case-based self-testing in one interface.
 
-Detects when blood specimens have been contaminated with intravenous fluids
-(Normal Saline, Lactated Ringer's, Dextrose solutions, etc.) using machine
-learning models trained on simulated contamination data.
+[Open the hosted FluidFlagger app](https://huggingface.co/spaces/nickspies/FluidFlagger)
 
-## Web UI
+## What the app supports
 
-The Gradio interface has five tabs:
+| Panel | Current-result columns |
+|---|---|
+| BMP | `sodium`, `chloride`, `potassium_plas`, `co2_totl`, `bun`, `creatinine`, `calcium`, `glucose` |
+| CBC | `Hgb`, `Plt`, `WBC` |
 
-- **Predict** — upload a CSV (wide or long format) or enter values manually
-- **Train** — train custom models on your own institution's data
-- **Review** — step through predictions and add human labels for QA
-- **Validate** — upload reviewed predictions to explore Sens, Spec, PPV, NPV,
-  F1, ROC/PR AUCs, an interactive threshold-dependent 2×2 table, and calibration;
-  download a formatted HTML or PDF performance report; generate a model-specific
-  SHAP feature-importance plot directly below the calibration chart
-- **Self Test** — practice identifying contaminated specimens with simulated cases
+FluidFlagger provides two prediction timings:
 
-## Panels
+- **Realtime** uses the current results and a complete set of `_prior` results.
+- **Retrospective** uses the current, `_prior`, and `_post` results. Mixture-ratio
+  estimates are available only for retrospective predictions.
 
-| Panel | Analytes |
-|-------|----------|
-| BMP | Sodium, Chloride, Potassium, CO₂, BUN, Creatinine, Calcium, Glucose |
-| CBC | Hemoglobin, WBC, Platelets |
+Classification is binary. An output of **0.25 or greater** is labeled
+`Contaminated`; a lower output is labeled `Real`. Estimated mixture ratios are
+limited to the range 0.00–0.50.
 
----
+## How to use the app
 
-## Docker
+### Predict
 
-The multi-target Dockerfile produces three images:
+1. Select **BMP** or **CBC**.
+2. Choose **Upload** to analyze a comma-delimited CSV, or **Manual** to enter one
+   set of results directly.
+3. For BMP predictions, select the IV fluids to evaluate. The built-in options
+   include NS, LR, half-normal saline, water, and several dextrose-containing
+   fluids.
+4. Select **Run Predictions**.
+5. Review the table and download the prediction CSV.
 
-| Target | Purpose | Port |
-|--------|---------|------|
-| `inference` | Standalone prediction API (for navify Algorithm Suite) | 8080 |
-| `nomodel` | Gradio web UI (no models baked in) | 7860 |
-| `train` | Model training job | — |
+The **Custom Models** section accepts a folder of `.joblib` models. Model files
+loaded there are used by the running application until it restarts or they are
+replaced.
 
-### Building & running the inference container
+Include every required current and prior column to receive realtime results, and
+every post column to receive retrospective classifications and mixture-ratio
+estimates. Rows containing missing values for a timing receive blank results for
+that timing.
+
+### Train
+
+1. Select the BMP or CBC panel.
+2. Upload a wide-format training CSV containing complete current, `_prior`, and
+   `_post` columns.
+3. For BMP, optionally upload a custom fluid-concentration CSV or TSV. Otherwise,
+   the built-in concentrations are used.
+4. Select the model export format. Use `.joblib` if the models will be loaded
+   through the Predict tab.
+5. Select **Train Models**, then download the model archive and five-fold
+   cross-validation metrics CSV.
+
+Training can be computationally intensive and may take a substantial amount of
+time, particularly for the full set of BMP fluids.
+
+### Review
+
+1. Upload the CSV downloaded from Predict.
+2. Optionally enter the reviewer's name.
+3. Move through the rows and label each specimen **Real** or **Contaminated**.
+4. Download the reviewed file.
+
+The exported CSV keeps all prediction fields and adds `human_label`,
+`label_timestamp`, and `reviewer` columns.
+
+### Validate
+
+1. Upload the CSV downloaded from Review. Validate accepts comma- or
+   tab-delimited files.
+2. Confirm the detected ground-truth and prediction-output columns. The usual
+   defaults are `human_label` and `max_retrospective_prob`.
+3. Review Sens, Spec, PPV, NPV, and F1 at the default 0.25 threshold.
+4. Drag the ROC operating point or use the threshold slider. The metrics, ROC and
+   precision-recall markers, and 2×2 classification table update together.
+5. Inspect the calibration plot and download the formatted HTML or PDF report.
+6. To create a SHAP feature-importance plot, select the matching model below the
+   calibration plot and choose **Generate SHAP Plot**. The plot is not generated
+   automatically.
+
+Validation requires a probability-like output column with values from 0 to 1 and
+at least one `Real` and one `Contaminated` ground-truth label. The report follows
+the most recently committed threshold selection.
+
+### Self Test
+
+1. Select BMP or CBC and a display mode: Retrospective, Real-time, Current Only,
+   or Random.
+2. Classify each simulated case as **Real** or **Contaminated**.
+3. Review the revealed answer and track the running score.
+
+## Preparing prediction files
+
+### Wide format
+
+Wide files contain one specimen per row. Use the canonical current-result columns
+shown above, then add the same column names with `_prior` and `_post` suffixes.
+For example, a retrospective BMP file includes `sodium`, `sodium_prior`, and
+`sodium_post`, along with the equivalent columns for the other seven analytes.
+
+Examples:
+
+- [BMP wide-format CSV](data/bmp_test_wide.csv)
+- [CBC wide-format CSV](data/cbc_test_wide.csv)
+
+### Long format
+
+Long files contain one analyte result per row and require:
+
+| Column | Contents |
+|---|---|
+| `PATIENT_ID` | Patient or encounter identifier |
+| `DRAWN_DT_TM` | Collection timestamp |
+| `TASK_ASSAY` | Analyte name |
+| `RESULT_VALUE` | Numeric result; `RESULT_VALUE_NUMERIC` is also accepted |
+
+The app pivots long data to one row per collection time and derives prior and post
+results from draws for the same patient within 48 hours.
+
+Examples:
+
+- [BMP long-format CSV](data/bmp_test_long.csv)
+- [CBC long-format CSV](data/cbc_test_long.csv)
+
+### Main prediction outputs
+
+| Field pattern | Meaning |
+|---|---|
+| `prob_{fluid}_{timing}` | BMP contamination output for a fluid and timing |
+| `pred_{fluid}_{timing}` | Binary BMP label at the 0.25 threshold |
+| `mix_ratio_{fluid}` | Retrospective BMP mixture-ratio estimate |
+| `prob_CBC_{timing}` | CBC contamination output for a timing |
+| `pred_CBC_{timing}` | Binary CBC label at the 0.25 threshold |
+| `mix_ratio_CBC` | Retrospective CBC mixture-ratio estimate |
+| `max_*` | Highest BMP output or mixture ratio across evaluated fluids |
+| `any_*_pred` | Whether any evaluated BMP fluid was labeled contaminated |
+
+BMP aggregate fields without `_with_LR` exclude Lactated Ringer's; fields ending
+in `_with_LR` include it.
+
+## Run the complete app with Docker
+
+### Requirements
+
+- Docker Desktop or Docker Engine with BuildKit/buildx
+- Internet access during the build so the public model bundle can be downloaded
+
+No environment file or external database is required.
+
+### 1. Get the source
 
 ```bash
-# Build
-docker build --target inference -t fluidflagger-inference .
-
-# Run
-docker run -d -p 8080:8080 --name ff fluidflagger-inference
-
-# Push to Docker Hub
-docker tag fluidflagger-inference nspies13/fluidflagger-inference:1.0.0
-docker push nspies13/fluidflagger-inference:1.0.0
+git clone https://github.com/nickspies/FluidFlaggerApp.git
+cd FluidFlaggerApp
 ```
 
-### Health probes
+### 2. Build the full application image
 
 ```bash
-# Liveness — always returns 200 if the process is running
-curl http://localhost:8080/health/live
-# → {"status": "ok"}
-
-# Readiness — returns 200 after models are loaded, 503 before
-curl http://localhost:8080/health/ready
-# → {"status": "ok"}
+docker buildx build --load --target hf -t fluidflagger:latest .
 ```
 
----
+The `hf` target packages the web application, supporting data, and the current
+public model bundle into the image.
 
-## Prediction API
-
-### Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/predict` | BMP prediction (primary calculation endpoint) |
-| POST | `/api/bmp/predict` | BMP prediction (alias) |
-| POST | `/api/cbc/predict` | CBC prediction |
-| GET | `/health/live` | Liveness probe |
-| GET | `/health/ready` | Readiness probe |
-
-All prediction endpoints accept `application/json` and return `application/json`.
-They also accept `text/csv` and `text/tab-separated-values` and will respond in the same format.
-
-### BMP — JSON input
-
-Send a single object or an array of objects. Each object represents one blood draw.
-
-**Current specimen fields** (always required):
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `sodium` | Sodium (mEq/L) | 140 |
-| `chloride` | Chloride (mEq/L) | 102 |
-| `potassium_plas` | Potassium (mEq/L) | 4.1 |
-| `co2_totl` | Total CO₂ (mEq/L) | 24 |
-| `bun` | Blood Urea Nitrogen (mg/dL) | 15 |
-| `creatinine` | Creatinine (mg/dL) | 1.0 |
-| `calcium` | Calcium (mg/dL) | 9.2 |
-| `glucose` | Glucose (mg/dL) | 95 |
-
-**Prior specimen fields** (required for Realtime predictions) — the most recent previous result for each analyte, suffixed with `_prior` (e.g. `sodium_prior`, `chloride_prior`).
-
-**Post specimen fields** (required for Retrospective predictions) — the next result collected after the specimen in question, suffixed with `_post` (e.g. `sodium_post`, `chloride_post`). The retrospective model uses current + prior + post values and is more accurate than realtime.
-
-#### Example request
+### 3. Start the container
 
 ```bash
-curl -X POST http://localhost:8080/predict \
-  -H "Content-Type: application/json" \
-  -d '[
-    {
-      "sodium": 148, "chloride": 144, "potassium_plas": 2.7, "co2_totl": 16,
-      "bun": 40, "creatinine": 2.42, "calcium": 6.9, "glucose": 181,
-      "sodium_prior": 132, "chloride_prior": 83, "potassium_plas_prior": 4.5,
-      "co2_totl_prior": 24, "bun_prior": 49, "creatinine_prior": 3.62,
-      "calcium_prior": 10.3, "glucose_prior": 135,
-      "sodium_post": 135, "chloride_post": 94, "potassium_plas_post": 3.4,
-      "co2_totl_post": 28, "bun_post": 32, "creatinine_post": 1.75,
-      "calcium_post": 9.0, "glucose_post": 133
-    }
-  ]'
+docker run --rm \
+  --name fluidflagger \
+  -p 7860:7860 \
+  fluidflagger:latest
 ```
 
-#### Example response
+Open [http://localhost:7860](http://localhost:7860) in a browser. Stop the
+foreground container with `Ctrl+C`.
 
-The response echoes all input fields plus prediction columns for each fluid type:
+### 4. Check the running app
+
+From another terminal:
+
+```bash
+curl --fail http://localhost:7860/api/health
+```
+
+Expected response:
 
 ```json
-[
-  {
-    "sodium": 148,
-    "chloride": 144,
-    "potassium_plas": 2.7,
-    "...": "... (all input fields echoed back) ...",
-
-    "prob_NS_Realtime": 0.982,
-    "pred_NS_Realtime": "Contaminated",
-    "prob_NS_Retrospective": 0.995,
-    "pred_NS_Retrospective": "Contaminated",
-    "mix_ratio_NS": 0.43,
-
-    "prob_LR_Realtime": 0.871,
-    "pred_LR_Realtime": "Contaminated",
-    "prob_LR_Retrospective": 0.912,
-    "pred_LR_Retrospective": "Contaminated",
-    "mix_ratio_LR": 0.38,
-
-    "prob_D5W_Realtime": 0.654,
-    "pred_D5W_Realtime": "Contaminated",
-
-    "...": "... (one prob/pred pair per fluid × timing) ...",
-
-    "any_realtime_pred": true,
-    "any_realtime_pred_with_LR": true,
-    "any_retrospective_pred": true,
-    "any_retrospective_pred_with_LR": true,
-    "max_realtime_prob": 0.982,
-    "max_realtime_prob_with_LR": 0.982,
-    "max_retrospective_prob": 0.995,
-    "max_retrospective_prob_with_LR": 0.995,
-    "max_prob_fluid_realtime": "NS",
-    "max_prob_fluid_retrospective": "NS",
-    "max_mix_ratio": 0.43,
-    "max_mix_ratio_with_LR": 0.43
-  }
-]
+{"status":"ok"}
 ```
 
-**Key output fields:**
+Interactive API documentation is available at
+[http://localhost:7860/docs](http://localhost:7860/docs). The app exposes JSON
+prediction endpoints at `/api/bmp/predict` and `/api/cbc/predict`, plus
+newline-delimited JSON variants ending in `_stream`.
 
-| Field pattern | Description |
-|---------------|-------------|
-| `prob_{fluid}_{timing}` | Contamination probability (0–1) for a specific fluid and timing |
-| `pred_{fluid}_{timing}` | Classification: `"Contaminated"` (≥0.25) or `"Real"` (<0.25) |
-| `mix_ratio_{fluid}` | Estimated IV-fluid mix ratio (0.00-0.50; retrospective only) |
-| `any_realtime_pred` | `true` if any fluid (excluding LR) flagged as Contaminated in realtime |
-| `any_retrospective_pred` | Same for retrospective |
-| `max_realtime_prob` | Highest contamination probability across all fluids (excluding LR) |
-| `max_prob_fluid_realtime` | Which fluid had the highest realtime probability |
-
-The `_with_LR` variants include Lactated Ringer's in the aggregation.
-
-### CBC — JSON input
-
-Same structure, but with CBC analytes:
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `Hgb` | Hemoglobin (g/dL) | 14.0 |
-| `Plt` | Platelets (×10³/µL) | 250 |
-| `WBC` | White Blood Cells (×10³/µL) | 7.5 |
-
-**Prior fields** (required for Realtime): `Hgb_prior`, `Plt_prior`, `WBC_prior`
-
-**Post fields** (required for Retrospective): `Hgb_post`, `Plt_post`, `WBC_post`
+### Run in the background
 
 ```bash
-curl -X POST http://localhost:8080/api/cbc/predict \
-  -H "Content-Type: application/json" \
-  -d '[{"Hgb": 14.0, "Plt": 250, "WBC": 7.5,
-        "Hgb_prior": 13.8, "Plt_prior": 245, "WBC_prior": 7.2}]'
+docker run -d \
+  --name fluidflagger \
+  -p 7860:7860 \
+  fluidflagger:latest
+
+docker logs -f fluidflagger
 ```
 
-### Error handling
-
-| HTTP Status | Meaning |
-|-------------|---------|
-| 200 | Success — JSON array of results |
-| 400 | Bad request — malformed JSON, missing fields, or unparseable input |
-| 503 | Models not loaded yet (retry after readiness probe returns 200) |
-
----
-
-## Input Format (CSV)
-
-**Wide format** — one row per blood draw, analyte values as columns:
-
-| sodium | chloride | potassium_plas | co2_totl | bun | creatinine | calcium | glucose |
-|--------|----------|----------------|----------|-----|------------|---------|---------|
-| 138 | 102 | 4.1 | 24 | 12 | 0.9 | 9.2 | 95 |
-
-Add `_prior` columns (e.g. `sodium_prior`) to enable Realtime predictions.
-Add `_post` columns (e.g. `sodium_post`) to also enable Retrospective predictions.
-
-**Long format** — one row per analyte result, requires columns:
-`PATIENT_ID`, `DRAWN_DT_TM`, `TASK_ASSAY`, `RESULT_VALUE`
-
----
-
-## Training Custom Models
-
-1. Prepare a wide-format CSV with analyte columns (+ `_prior`/`_post` for retrospective)
-2. Upload in the **Train** tab or run the CLI:
+Stop and remove the background container with:
 
 ```bash
-python -m src.train \
-  --panel bmp \
-  --template my_training_data.csv \
-  --output models/ \
-  --upload \
-  --repo yourname/fluidflagger-models
+docker stop fluidflagger
+docker rm fluidflagger
 ```
 
-Mixture-ratio regressors are trained separately from the binary classifiers on a
-balanced simulated grid: 1,000 specimens at every ratio from 0.00 through 0.50
-in 0.01 increments. BMP models use one grid per fluid; CBC uses one dilution grid.
+### Use a different host port
 
-## Deployment
+If port 7860 is already occupied, map another host port to container port 7860:
 
-This Space is automatically redeployed on every push to `main` via GitHub Actions.
-Model files are stored separately in the
-[fluidflagger-models](https://huggingface.co/nickspies/fluidflagger-models) HF Hub
-model repository and downloaded lazily on first use.
+```bash
+docker run --rm --name fluidflagger -p 7861:7860 fluidflagger:latest
+```
+
+Then open [http://localhost:7861](http://localhost:7861).
+
+Self-test history is stored inside the container and is removed when a container
+started with `--rm` stops. Prediction files, reports, model archives, and plots
+are downloaded through the browser and remain on the user's computer.
