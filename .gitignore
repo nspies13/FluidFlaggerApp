@@ -22,6 +22,10 @@ dev/exemplar_bank/labels.npy
 # macOS
 .DS_Store
 
+# High-resolution raster source assets are too large for Git history.
+*.tif
+*.tiff
+
 # LaTeX build artifacts
 *.aux
 *.fdb_latexmk
