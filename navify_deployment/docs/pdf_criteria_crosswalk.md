@@ -5,7 +5,7 @@ The confidential onboarding PDF is not copied into this repository. This crosswa
 | PDF criterion | Implementation |
 | --- | --- |
 | Calculation endpoint accepts `application/json` | `POST /predict` accepts only `application/json`. |
-| Successful algorithm execution returns HTTP 200 | Valid BMP requests return HTTP 200 with a JSON array. |
+| Successful algorithm execution returns HTTP 200 | Valid BMP requests return HTTP 200 with one complete JSON object; unavailable retrospective values are `null` for realtime-only requests. |
 | Invalid input returns HTTP 400 | Missing fields, partial post fields, malformed JSON, nonnumeric values, and wrong content type return HTTP 400. |
 | Liveness endpoint | `GET /health/live`. |
 | Readiness endpoint | `GET /health/ready`; returns 200 only after all 27 BMP models load. |

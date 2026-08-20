@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_NAME="${IMAGE_NAME:-fluidflagger-bmp}"
+IMAGE_NAME="${IMAGE_NAME:-fluidflagger}"
 TAG="${TAG:-1.0.0}"
 IMAGE="${IMAGE_NAME}:${TAG}"
 

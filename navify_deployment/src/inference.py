@@ -15,17 +15,14 @@ import pandas as pd
 from .features import BMP_ANALYTES
 from .model_loader import BMP_FLUIDS, bmp_classification_key, bmp_mix_ratio_key, get_model
 
-_CONTAM_THRESHOLD = 0.75
-_EQUIVOCAL_LOW = 0.5
+_CONTAM_THRESHOLD = 0.25
 
 
 def label_pred_class(prob: float) -> str | None:
     if prob is None or (isinstance(prob, float) and np.isnan(prob)):
         return None
-    if prob > _CONTAM_THRESHOLD:
+    if prob >= _CONTAM_THRESHOLD:
         return "Contaminated"
-    if prob >= _EQUIVOCAL_LOW:
-        return "Equivocal"
     return "Real"
 
 

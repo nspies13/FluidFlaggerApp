@@ -1,14 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft-04/schema",
-  "description": "An array containing one prediction result for each submitted BMP record. Retrospective and mix-ratio fields are included only when complete post-specimen results are supplied.",
-  "type": "array",
-  "items": {
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {
+  "description": "A single complete FluidFlagger BMP prediction result. Post-specimen, retrospective, and mix-ratio fields are null when complete post-specimen results are not supplied.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
       "sodium": { "type": "number" }, "chloride": { "type": "number" }, "potassium_plas": { "type": "number" }, "co2_totl": { "type": "number" }, "bun": { "type": "number" }, "creatinine": { "type": "number" }, "calcium": { "type": "number" }, "glucose": { "type": "number" },
       "sodium_prior": { "type": "number" }, "chloride_prior": { "type": "number" }, "potassium_plas_prior": { "type": "number" }, "co2_totl_prior": { "type": "number" }, "bun_prior": { "type": "number" }, "creatinine_prior": { "type": "number" }, "calcium_prior": { "type": "number" }, "glucose_prior": { "type": "number" },
-      "sodium_post": { "type": "number" }, "chloride_post": { "type": "number" }, "potassium_plas_post": { "type": "number" }, "co2_totl_post": { "type": "number" }, "bun_post": { "type": "number" }, "creatinine_post": { "type": "number" }, "calcium_post": { "type": "number" }, "glucose_post": { "type": "number" },
+      "sodium_post": { "type": ["number", "null"] }, "chloride_post": { "type": ["number", "null"] }, "potassium_plas_post": { "type": ["number", "null"] }, "co2_totl_post": { "type": ["number", "null"] }, "bun_post": { "type": ["number", "null"] }, "creatinine_post": { "type": ["number", "null"] }, "calcium_post": { "type": ["number", "null"] }, "glucose_post": { "type": ["number", "null"] },
       "prob_NS_Realtime": { "type": "number" }, "pred_NS_Realtime": { "type": ["string", "null"] },
       "prob_LR_Realtime": { "type": "number" }, "pred_LR_Realtime": { "type": ["string", "null"] },
       "prob_D5NS_Realtime": { "type": "number" }, "pred_D5NS_Realtime": { "type": ["string", "null"] },
@@ -18,24 +16,27 @@
       "prob_D5halfNS_Realtime": { "type": "number" }, "pred_D5halfNS_Realtime": { "type": ["string", "null"] },
       "prob_halfNS_Realtime": { "type": "number" }, "pred_halfNS_Realtime": { "type": ["string", "null"] },
       "prob_Water_Realtime": { "type": "number" }, "pred_Water_Realtime": { "type": ["string", "null"] },
-      "prob_NS_Retrospective": { "type": "number" }, "pred_NS_Retrospective": { "type": ["string", "null"] },
-      "prob_LR_Retrospective": { "type": "number" }, "pred_LR_Retrospective": { "type": ["string", "null"] },
-      "prob_D5NS_Retrospective": { "type": "number" }, "pred_D5NS_Retrospective": { "type": ["string", "null"] },
-      "prob_D5LR_Retrospective": { "type": "number" }, "pred_D5LR_Retrospective": { "type": ["string", "null"] },
-      "prob_D5W_Retrospective": { "type": "number" }, "pred_D5W_Retrospective": { "type": ["string", "null"] },
-      "prob_D5halfNSwK_Retrospective": { "type": "number" }, "pred_D5halfNSwK_Retrospective": { "type": ["string", "null"] },
-      "prob_D5halfNS_Retrospective": { "type": "number" }, "pred_D5halfNS_Retrospective": { "type": ["string", "null"] },
-      "prob_halfNS_Retrospective": { "type": "number" }, "pred_halfNS_Retrospective": { "type": ["string", "null"] },
-      "prob_Water_Retrospective": { "type": "number" }, "pred_Water_Retrospective": { "type": ["string", "null"] },
-      "mix_ratio_NS": { "type": "number" }, "mix_ratio_LR": { "type": "number" }, "mix_ratio_D5NS": { "type": "number" }, "mix_ratio_D5LR": { "type": "number" }, "mix_ratio_D5W": { "type": "number" }, "mix_ratio_D5halfNSwK": { "type": "number" }, "mix_ratio_D5halfNS": { "type": "number" }, "mix_ratio_halfNS": { "type": "number" }, "mix_ratio_Water": { "type": "number" },
+      "prob_NS_Retrospective": { "type": ["number", "null"] }, "pred_NS_Retrospective": { "type": ["string", "null"] },
+      "prob_LR_Retrospective": { "type": ["number", "null"] }, "pred_LR_Retrospective": { "type": ["string", "null"] },
+      "prob_D5NS_Retrospective": { "type": ["number", "null"] }, "pred_D5NS_Retrospective": { "type": ["string", "null"] },
+      "prob_D5LR_Retrospective": { "type": ["number", "null"] }, "pred_D5LR_Retrospective": { "type": ["string", "null"] },
+      "prob_D5W_Retrospective": { "type": ["number", "null"] }, "pred_D5W_Retrospective": { "type": ["string", "null"] },
+      "prob_D5halfNSwK_Retrospective": { "type": ["number", "null"] }, "pred_D5halfNSwK_Retrospective": { "type": ["string", "null"] },
+      "prob_D5halfNS_Retrospective": { "type": ["number", "null"] }, "pred_D5halfNS_Retrospective": { "type": ["string", "null"] },
+      "prob_halfNS_Retrospective": { "type": ["number", "null"] }, "pred_halfNS_Retrospective": { "type": ["string", "null"] },
+      "prob_Water_Retrospective": { "type": ["number", "null"] }, "pred_Water_Retrospective": { "type": ["string", "null"] },
+      "mix_ratio_NS": { "type": ["number", "null"] }, "mix_ratio_LR": { "type": ["number", "null"] }, "mix_ratio_D5NS": { "type": ["number", "null"] }, "mix_ratio_D5LR": { "type": ["number", "null"] }, "mix_ratio_D5W": { "type": ["number", "null"] }, "mix_ratio_D5halfNSwK": { "type": ["number", "null"] }, "mix_ratio_D5halfNS": { "type": ["number", "null"] }, "mix_ratio_halfNS": { "type": ["number", "null"] }, "mix_ratio_Water": { "type": ["number", "null"] },
       "any_realtime_pred": { "type": "boolean" }, "any_realtime_pred_with_LR": { "type": "boolean" }, "max_realtime_prob": { "type": "number" }, "max_prob_fluid_realtime": { "type": "string" }, "max_realtime_prob_with_LR": { "type": "number" },
-      "any_retrospective_pred": { "type": "boolean" }, "any_retrospective_pred_with_LR": { "type": "boolean" }, "max_retrospective_prob": { "type": "number" }, "max_prob_fluid_retrospective": { "type": "string" }, "max_retrospective_prob_with_LR": { "type": "number" }, "max_mix_ratio": { "type": "number" }, "max_mix_ratio_with_LR": { "type": "number" }
-    },
-    "required": [
+      "any_retrospective_pred": { "type": ["boolean", "null"] }, "any_retrospective_pred_with_LR": { "type": ["boolean", "null"] }, "max_retrospective_prob": { "type": ["number", "null"] }, "max_prob_fluid_retrospective": { "type": ["string", "null"] }, "max_retrospective_prob_with_LR": { "type": ["number", "null"] }, "max_mix_ratio": { "type": ["number", "null"] }, "max_mix_ratio_with_LR": { "type": ["number", "null"] }
+  },
+  "required": [
       "sodium", "chloride", "potassium_plas", "co2_totl", "bun", "creatinine", "calcium", "glucose",
       "sodium_prior", "chloride_prior", "potassium_plas_prior", "co2_totl_prior", "bun_prior", "creatinine_prior", "calcium_prior", "glucose_prior",
+      "sodium_post", "chloride_post", "potassium_plas_post", "co2_totl_post", "bun_post", "creatinine_post", "calcium_post", "glucose_post",
       "prob_NS_Realtime", "pred_NS_Realtime", "prob_LR_Realtime", "pred_LR_Realtime", "prob_D5NS_Realtime", "pred_D5NS_Realtime", "prob_D5LR_Realtime", "pred_D5LR_Realtime", "prob_D5W_Realtime", "pred_D5W_Realtime", "prob_D5halfNSwK_Realtime", "pred_D5halfNSwK_Realtime", "prob_D5halfNS_Realtime", "pred_D5halfNS_Realtime", "prob_halfNS_Realtime", "pred_halfNS_Realtime", "prob_Water_Realtime", "pred_Water_Realtime",
-      "any_realtime_pred", "any_realtime_pred_with_LR", "max_realtime_prob", "max_prob_fluid_realtime", "max_realtime_prob_with_LR"
-    ]
-  }
+      "prob_NS_Retrospective", "pred_NS_Retrospective", "prob_LR_Retrospective", "pred_LR_Retrospective", "prob_D5NS_Retrospective", "pred_D5NS_Retrospective", "prob_D5LR_Retrospective", "pred_D5LR_Retrospective", "prob_D5W_Retrospective", "pred_D5W_Retrospective", "prob_D5halfNSwK_Retrospective", "pred_D5halfNSwK_Retrospective", "prob_D5halfNS_Retrospective", "pred_D5halfNS_Retrospective", "prob_halfNS_Retrospective", "pred_halfNS_Retrospective", "prob_Water_Retrospective", "pred_Water_Retrospective",
+      "mix_ratio_NS", "mix_ratio_LR", "mix_ratio_D5NS", "mix_ratio_D5LR", "mix_ratio_D5W", "mix_ratio_D5halfNSwK", "mix_ratio_D5halfNS", "mix_ratio_halfNS", "mix_ratio_Water",
+      "any_realtime_pred", "any_realtime_pred_with_LR", "max_realtime_prob", "max_prob_fluid_realtime", "max_realtime_prob_with_LR",
+      "any_retrospective_pred", "any_retrospective_pred_with_LR", "max_retrospective_prob", "max_prob_fluid_retrospective", "max_retrospective_prob_with_LR", "max_mix_ratio", "max_mix_ratio_with_LR"
+  ]
 }

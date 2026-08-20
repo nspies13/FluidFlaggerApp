@@ -9,8 +9,8 @@ held-out validation sets:
 
 For each panel we score every specimen with the local FluidFlagger real-time and
 retrospective classifiers, then evaluate discrimination (auROC, auPRC) and the
-operating point at the p>=0.75 contamination threshold (sensitivity, specificity,
-PPV, NPV) against each reference standard.
+operating point at the p>=0.25 contamination threshold (sensitivity, specificity,
+PPV, NPV, and F1) against each reference standard.
 
 Outputs (written next to the LaTeX source in paper/files/):
   validation_gold_metrics.csv      metrics vs expert review
@@ -49,7 +49,9 @@ from src.inference import make_bmp_predictions, make_cbc_predictions
 
 DATA = REPO / "data"
 OUT = REPO / "paper" / "files"
-THRESHOLD = 0.75  # contamination operating point from the manuscript
+# Keep manuscript validation aligned with the binary production classifier:
+# scores at or above 0.25 are contaminated.
+THRESHOLD = 0.25
 N_BOOT = 2000
 RNG_SEED = 13
 
@@ -93,8 +95,9 @@ def operating_point(y, s, thr=THRESHOLD):
     spec = tn / (tn + fp) if (tn + fp) else np.nan
     ppv = tp / (tp + fp) if (tp + fp) else np.nan
     npv = tn / (tn + fn) if (tn + fn) else np.nan
+    f1 = 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) else np.nan
     return dict(tp=tp, fp=fp, tn=tn, fn=fn, sensitivity=sens,
-               specificity=spec, ppv=ppv, npv=npv)
+               specificity=spec, ppv=ppv, npv=npv, f1=f1)
 
 
 def evaluate(y_raw, s_raw, label, thr=THRESHOLD, bootstrap=True):
@@ -218,7 +221,7 @@ def dataset_summary(scored):
             "n_expert_contaminated": int(np.nansum(exp[m])),
             "n_expert_real": int(m.sum() - np.nansum(exp[m])),
             "expert_prevalence": float(np.nansum(exp[m]) / m.sum()) if m.sum() else np.nan,
-            "n_ref_flagged_0.75": int((d["ref_retro"] >= THRESHOLD).sum()),
+            f"n_ref_flagged_{THRESHOLD:.2f}": int((d["ref_retro"] >= THRESHOLD).sum()),
         })
     return pd.DataFrame(rows)
 
@@ -588,7 +591,7 @@ def plot_score_dist(scored):
         if x_max <= 0.5:
             axis.set_xticks(np.arange(0, x_max + 0.001, 0.1), [f"{tick:.2f}" for tick in np.arange(0, x_max + 0.001, 0.1)])
         else:
-            axis.set_xticks([0, 0.25, 0.5, THRESHOLD, 1], ["0.00", "0.25", "0.50", "0.75", "1.00"])
+            axis.set_xticks([0, 0.25, 0.5, 0.75, 1], ["0.00", "0.25", "0.50", "0.75", "1.00"])
         axis.set_ylim(min(positions) - 0.52, max(positions) + 0.54)
         axis.set_yticks(positions, labels)
         axis.set_xlabel(x_label, fontsize=9.5, fontweight="bold", labelpad=5)
@@ -708,6 +711,7 @@ def _pct(x):
 
 
 def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
+    threshold_label = f"{THRESHOLD:.2f}"
     lines = []
     # ---- Gold-standard table ----
     lines += [
@@ -716,15 +720,15 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
         r"\centering",
         r"\caption{Validation against expert review (gold standard). Discrimination "
         r"(auROC, auPRC with 95\% bootstrap confidence intervals) and operating-point "
-        r"performance at the $p\ge0.75$ contamination threshold. Reference columns are "
+        rf"performance at the $p\ge {threshold_label}$ contamination threshold. Reference columns are "
         r"the probabilities shipped with the validation set.}",
         r"\label{tab:val-gold}",
         r"\small",
         r"\resizebox{\linewidth}{!}{%",
-        r"\begin{tabular}{llrrrrr}",
+        r"\begin{tabular}{llrrrrrrr}",
         r"\toprule",
         r"Panel & Model & auROC (95\% CI) & auPRC (95\% CI) & Sens.\ (\%) & "
-        r"Spec.\ (\%) & PPV (\%) \\",
+        r"Spec.\ (\%) & PPV (\%) & NPV (\%) & F1 (\%) \\",
         r"\midrule",
     ]
     for panel in ["BMP", "CBC"]:
@@ -734,7 +738,8 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
             lines.append(
                 f"{pcell} & {r['scorer']} & {r['auroc']:.3f} {_ci(r['auroc_lo'], r['auroc_hi'])} "
                 f"& {r['auprc']:.3f} {_ci(r['auprc_lo'], r['auprc_hi'])} "
-                f"& {_pct(r['sensitivity'])} & {_pct(r['specificity'])} & {_pct(r['ppv'])} \\\\"
+                f"& {_pct(r['sensitivity'])} & {_pct(r['specificity'])} & {_pct(r['ppv'])} "
+                f"& {_pct(r['npv'])} & {_pct(r['f1'])} \\\\"
             )
         lines.append(r"\midrule" if panel == "BMP" else r"\bottomrule")
     n_bmp = int(summ[summ.panel == "BMP"].n_expert_reviewed.iloc[0])
@@ -754,14 +759,15 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
         r"\begin{table}[htbp]",
         r"\centering",
         r"\caption{Agreement of the FluidFlagger real-time and retrospective models "
-        r"with the retrospective reference probability (silver standard, binarised at "
-        r"$0.75$) across the complete validation set.}",
+        r"with the retrospective reference output (silver standard, binarised at "
+        rf"${threshold_label}$) across the complete validation set.}}",
         r"\label{tab:val-silver}",
         r"\small",
         r"\resizebox{\linewidth}{!}{%",
-        r"\begin{tabular}{llrrrr}",
+        r"\begin{tabular}{llrrrrrrrrr}",
         r"\toprule",
-        r"Panel & Model & $n$ & Reference-positive & auROC & auPRC \\",
+        r"Panel & Model & $n$ & Reference-positive & auROC & auPRC & Sens.\ (\%) & "
+        r"Spec.\ (\%) & PPV (\%) & NPV (\%) & F1 (\%) \\",
         r"\midrule",
     ]
     for panel in ["BMP", "CBC"]:
@@ -770,7 +776,9 @@ def write_latex(gold: pd.DataFrame, silver: pd.DataFrame, summ: pd.DataFrame):
             pcell = panel if i == 0 else ""
             lines.append(
                 f"{pcell} & {r['scorer']} & {r['n']:,} & {r['n_pos']:,} "
-                f"& {r['auroc']:.3f} & {r['auprc']:.3f} \\\\"
+                f"& {r['auroc']:.3f} & {r['auprc']:.3f} "
+                f"& {_pct(r['sensitivity'])} & {_pct(r['specificity'])} & {_pct(r['ppv'])} "
+                f"& {_pct(r['npv'])} & {_pct(r['f1'])} \\\\"
             )
         lines.append(r"\midrule" if panel == "BMP" else r"\bottomrule")
     lines += [r"\end{tabular}", r"}%", r"\end{table}", r""]
@@ -827,9 +835,10 @@ def main():
     print(summ.to_string(index=False))
     print("\n=== Gold (vs expert review) ===")
     print(gold[["panel", "scorer", "n", "n_pos", "auroc", "auprc",
-                "sensitivity", "specificity", "ppv", "npv"]].to_string(index=False))
+                "sensitivity", "specificity", "ppv", "npv", "f1"]].to_string(index=False))
     print("\n=== Silver (vs retrospective reference, full set) ===")
-    print(silver[["panel", "scorer", "n", "n_pos", "auroc", "auprc"]].to_string(index=False))
+    print(silver[["panel", "scorer", "n", "n_pos", "auroc", "auprc",
+                  "sensitivity", "specificity", "ppv", "npv", "f1"]].to_string(index=False))
 
     print("\nGenerating plots ...", flush=True)
     plot_roc_pr(scored)

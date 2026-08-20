@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse
 from .features import BMP_ANALYTES, preprocess_bmp_data
 from .inference import make_bmp_predictions
 from .model_loader import (
+    BMP_FLUIDS,
     EXPECTED_BMP_MODEL_COUNT,
     clear_cache,
     load_required_models_from_dir,
@@ -38,6 +39,21 @@ PRIOR_FIELDS = tuple(f"{col}_prior" for col in BMP_ANALYTES)
 POST_FIELDS = tuple(f"{col}_post" for col in BMP_ANALYTES)
 REQUIRED_REALTIME_FIELDS = CURRENT_FIELDS + PRIOR_FIELDS
 NUMERIC_FIELDS = REQUIRED_REALTIME_FIELDS + POST_FIELDS
+NULLABLE_RETROSPECTIVE_RESPONSE_FIELDS = (
+    POST_FIELDS
+    + tuple(f"prob_{fluid}_Retrospective" for fluid in BMP_FLUIDS)
+    + tuple(f"pred_{fluid}_Retrospective" for fluid in BMP_FLUIDS)
+    + tuple(f"mix_ratio_{fluid}" for fluid in BMP_FLUIDS)
+    + (
+        "any_retrospective_pred",
+        "any_retrospective_pred_with_LR",
+        "max_retrospective_prob",
+        "max_prob_fluid_retrospective",
+        "max_retrospective_prob_with_LR",
+        "max_mix_ratio",
+        "max_mix_ratio_with_LR",
+    )
+)
 
 _models_ready = False
 _model_load_error: str | None = None
@@ -79,7 +95,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="FluidFlagger BMP Navify API",
-    version="1.0.0",
+    version="1.0.3",
     lifespan=lifespan,
 )
 
@@ -118,12 +134,15 @@ async def _parse_json_payload(request: Request) -> list[dict[str, Any]]:
     if isinstance(payload, dict):
         records = [payload]
     elif isinstance(payload, list):
+        if len(payload) != 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Payload array must contain exactly one BMP record",
+            )
         records = payload
     else:
         raise HTTPException(status_code=400, detail="Payload must be an object or array")
 
-    if not records:
-        raise HTTPException(status_code=400, detail="Payload array must not be empty")
     if not all(isinstance(item, dict) for item in records):
         raise HTTPException(status_code=400, detail="Every payload item must be an object")
     return records
@@ -169,9 +188,22 @@ def _coerce_and_validate(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
     return df, has_complete_post
 
 
-def _records_from_df(df: pd.DataFrame) -> list[dict[str, Any]]:
+def _record_from_df(
+    df: pd.DataFrame,
+    *,
+    fill_unavailable_retrospective: bool,
+) -> dict[str, Any]:
     records = df.where(pd.notna(df), None).to_dict(orient="records")
-    return jsonable_encoder(records)
+    if len(records) != 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Payload must contain exactly one BMP record",
+        )
+    record = jsonable_encoder(records[0])
+    if fill_unavailable_retrospective:
+        for field in NULLABLE_RETROSPECTIVE_RESPONSE_FIELDS:
+            record.setdefault(field, None)
+    return record
 
 
 @app.post("/predict")
@@ -195,4 +227,9 @@ async def predict(request: Request):
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    return JSONResponse(content=_records_from_df(result))
+    return JSONResponse(
+        content=_record_from_df(
+            result,
+            fill_unavailable_retrospective=not has_complete_post,
+        )
+    )
