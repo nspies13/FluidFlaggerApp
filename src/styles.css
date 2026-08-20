@@ -49,12 +49,16 @@
     color: #64748b !important;
     margin: 0 !important;
 }
-/* ── Section title HTML blocks: remove gap before next component ── */
-.ff-th {
-    margin-bottom: calc(-1 * var(--layout-gap, 8px)) !important;
+/* ── Section title HTML blocks: tighten gap before next component ──
+   Gradio copies elem_classes onto both the wrapper .block and the inner
+   .prose div, so an unscoped rule applies the pull-up twice and the next
+   component ends up covering the title.  Scope it to the wrapper. */
+.block.ff-th {
+    margin-bottom: calc(-0.5 * var(--layout-gap, 8px)) !important;
     padding-bottom: 0 !important;
     line-height: 1 !important;
 }
+.prose.ff-th { margin-bottom: 0 !important; }
 .ff-divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
 
 /* ── Status pills ──────────────────────────────────────────── */
@@ -459,8 +463,8 @@
 .dark .btn-real button   { background: #052e16 !important; color: #4ade80 !important; border-color: #4ade80 !important; }
 .dark .btn-contam button { background: #1c0505 !important; color: #f87171 !important; border-color: #f87171 !important; }
 
-.dark .ff-top-radio > .wrap > legend,
-.dark .ff-top-radio > label,
+.dark .ff-top-radio > .wrap > legend { color: #94a3b8 !important; }
+.dark .ff-top-radio > label { color: #94a3b8 !important; }
 .dark .ff-top-radio legend { color: #94a3b8 !important; }
 .dark .ff-counter p { color: #94a3b8; }
 
@@ -480,7 +484,7 @@
 
 .dark .ff-instr-card { background: #1e293b !important; border-color: #334155 !important; }
 .dark .ff-instr-card h4 { color: #f1f5f9 !important; }
-.dark .ff-instr-card p,
+.dark .ff-instr-card p { color: #94a3b8 !important; }
 .dark .ff-instr-card p strong { color: #94a3b8 !important; }
 .dark .ff-instr-card code { background: #334155 !important; color: #cbd5e1 !important; }
 
@@ -509,9 +513,9 @@
 /* ── Dark mode self-test answer ─────────────────────────────── */
 .dark .ff-verdict-correct  { background: #052e16; border-color: #166534; }
 .dark .ff-verdict-incorrect { background: #1c0505; border-color: #991b1b; }
-.dark .ff-verdict-correct  .ff-verdict-icon,
-.dark .ff-verdict-correct  .ff-verdict-text { color: #4ade80; }
-.dark .ff-verdict-incorrect .ff-verdict-icon,
+.dark .ff-verdict-correct .ff-verdict-icon { color: #4ade80; }
+.dark .ff-verdict-correct .ff-verdict-text { color: #4ade80; }
+.dark .ff-verdict-incorrect .ff-verdict-icon { color: #f87171; }
 .dark .ff-verdict-incorrect .ff-verdict-text { color: #f87171; }
 .dark .ff-truth-contaminated { background: #1c0508; border-color: #881337; }
 .dark .ff-truth-clean        { background: #052e16; border-color: #166534; }
@@ -526,12 +530,12 @@
 .dark .ff-score-good { background: #052e16; border-color: #166534; }
 .dark .ff-score-mid  { background: #1c1004; border-color: #92400e; }
 .dark .ff-score-bad  { background: #1c0505; border-color: #991b1b; }
-.dark .ff-score-good .ff-score-num,
+.dark .ff-score-good .ff-score-num { color: #4ade80; }
 .dark .ff-score-good .ff-score-pct { color: #4ade80; }
-.dark .ff-score-mid  .ff-score-num,
-.dark .ff-score-mid  .ff-score-pct { color: #fbbf24; }
-.dark .ff-score-bad  .ff-score-num,
-.dark .ff-score-bad  .ff-score-pct { color: #f87171; }
+.dark .ff-score-mid .ff-score-num { color: #fbbf24; }
+.dark .ff-score-mid .ff-score-pct { color: #fbbf24; }
+.dark .ff-score-bad .ff-score-num { color: #f87171; }
+.dark .ff-score-bad .ff-score-pct { color: #f87171; }
 .dark .ff-score-track { background: #334155; }
 .dark .ff-score-good .ff-score-fill { background: #4ade80; }
 .dark .ff-score-mid  .ff-score-fill { background: #fbbf24; }
@@ -861,6 +865,15 @@
 .ff-v-calibration-card {
     grid-column: 1 / -1;
 }
+/* All three charts share one 620x390 viewBox.  Across the full grid width that
+   scales the calibration plot far taller than the half-width ROC/PR charts, so
+   cap its height and centre it instead. */
+.ff-v-calibration-card .ff-v-chart {
+    width: auto;
+    max-width: 100%;
+    height: 360px;
+    margin: 0 auto;
+}
 .ff-v-legend {
     display: flex;
     align-items: center;
@@ -949,6 +962,99 @@
     border-radius: 12px;
 }
 
+/* ── Validate sidebar sections ─────────────────────────────── */
+/* Revealed sidebar groups read as continuations of the sidebar card,
+   separated by a hairline rule instead of the shaded panel Gradio paints by
+   default.  Gradio does not forward ``elem_classes`` on ``gr.Group``, so the
+   rendered ``.gr-group`` wrapper is targeted within this sidebar. */
+.ff-validation-sidebar .gr-group .styler {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.ff-validation-sidebar .gr-group {
+    margin-top: 18px !important;
+    padding: 16px 0 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-top: 1px solid #dbe5f1 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+.ff-validation-sidebar .gr-group button {
+    border-radius: 10px !important;
+    font-size: 0.82rem !important;
+}
+
+/* ── Data preview tables (Predict + Validate) ──────────────── */
+.ff-preview-info {
+    margin-top: 18px !important;
+    margin-bottom: 0 !important;
+}
+.ff-preview-info p {
+    display: inline-block;
+    margin: 0 !important;
+    padding: 4px 10px;
+    background: #eef6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    color: #1d4ed8 !important;
+    font-size: 0.7rem !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.01em;
+}
+.ff-preview-info strong { font-weight: 650 !important; }
+.ff-preview-table {
+    margin-top: 10px !important;
+    border: 1px solid #dbe5f1 !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.045);
+    /* The frame clips the scrolling table to the card's rounded corners. */
+    overflow: hidden !important;
+}
+/* Gradio leaves the table wrapper unscrolled, so a wide preview stretches the
+   whole page sideways.  Keep the overflow inside this card. */
+.ff-preview-table .table-wrap {
+    max-width: 100%;
+    max-height: 330px;
+    overflow: auto !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+.ff-preview-table .label {
+    padding: 10px 14px !important;
+    border-bottom: 1px solid #dbe5f1;
+    background: #f6f9fd;
+}
+.ff-preview-table .label p {
+    color: #64748b !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.ff-preview-table table { border-collapse: separate; border-spacing: 0; }
+.ff-preview-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f6f9fd !important;
+    border-bottom: 1px solid #dbe5f1 !important;
+    color: #475569 !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.ff-preview-table tbody td {
+    border-color: #eef2f7 !important;
+    color: #334155 !important;
+    font-size: 0.75rem !important;
+    font-variant-numeric: tabular-nums;
+}
+.ff-preview-table tbody tr:last-child td { border-bottom: none !important; }
+
 @media (hover: hover) {
     .ff-v-metric-card:hover {
         border-color: #bfdbfe;
@@ -984,8 +1090,18 @@
     .ff-validation-shap-panel .ff-empty-state { padding: 28px 18px; }
 }
 
+/* ── Dark mode: Validate ────────────────────────────────────
+   Gradio scopes injected CSS by prefixing each selector with
+   ``.gradio-container… .contain``.  In a comma-separated group it only
+   rewrites the first selector correctly; the rest come out as
+   ``.contain .dark .x`` and never match, losing to the scoped light rule.
+   Keep one selector per rule below. */
 .dark .ff-validation-results { color: #e2e8f0; }
-.dark .ff-validation-sidebar,
+.dark .ff-validation-sidebar {
+    background: linear-gradient(145deg, #172033 0%, #1e293b 70%);
+    border-color: #334155;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
+}
 .dark .ff-validation-empty-state {
     background: linear-gradient(145deg, #172033 0%, #1e293b 70%);
     border-color: #334155;
@@ -998,37 +1114,49 @@
     border-color: #334155;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
 }
-.dark .ff-v-result-header h2,
-.dark .ff-v-chart-heading h3,
+.dark .ff-v-result-header h2 { color: #f1f5f9 !important; }
+.dark .ff-v-chart-heading h3 { color: #f1f5f9 !important; }
 .dark .ff-v-metric-value { color: #f1f5f9 !important; }
-.dark .ff-v-subtitle,
-.dark .ff-v-chart-heading p,
+.dark .ff-v-subtitle { color: #94a3b8 !important; }
+.dark .ff-v-chart-heading p { color: #94a3b8 !important; }
 .dark .ff-v-drag-note { color: #94a3b8 !important; }
-.dark .ff-v-cohort-summary,
-.dark .ff-v-metric-card,
-.dark .ff-v-chart-card,
+.dark .ff-v-cohort-summary {
+    background: #1e293b;
+    border-color: #334155;
+}
+.dark .ff-v-metric-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+.dark .ff-v-chart-card {
+    background: #1e293b;
+    border-color: #334155;
+}
 .dark .ff-v-inset {
     background: #1e293b;
     border-color: #334155;
 }
-.dark .ff-v-metric-card,
+.dark .ff-v-metric-card {
+    background: #1e293b;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
+}
 .dark .ff-v-chart-card {
     background: #1e293b;
     box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
 }
 .dark .ff-v-chart { background: #0f172a; }
 .dark .ff-v-cohort-summary { color: #cbd5e1; }
-.dark .ff-v-cohort-summary strong,
+.dark .ff-v-cohort-summary strong { color: #60a5fa; }
 .dark .ff-v-threshold-control output { color: #60a5fa; }
-.dark .ff-v-metric-label,
-.dark .ff-v-axis-text,
-.dark .ff-v-legend,
+.dark .ff-v-metric-label { color: #94a3b8; }
+.dark .ff-v-axis-text { color: #94a3b8; }
+.dark .ff-v-legend { color: #94a3b8; }
 .dark .ff-v-threshold-control span { color: #94a3b8; }
 .dark .ff-v-axis-text { fill: #94a3b8; }
-.dark .ff-v-axis-title,
-.dark .ff-v-threshold-control label,
+.dark .ff-v-axis-title { fill: #cbd5e1; color: #cbd5e1; }
+.dark .ff-v-threshold-control label { fill: #cbd5e1; color: #cbd5e1; }
 .dark .ff-v-inset td { fill: #cbd5e1; color: #cbd5e1; }
-.dark .ff-v-axis-spine,
+.dark .ff-v-axis-spine { stroke: #475569; }
 .dark .ff-v-axis-tick { stroke: #475569; }
 .dark .ff-v-reference-line { stroke: #64748b; }
 .dark .ff-v-auc-badge { background: #172554; border-color: #1e40af; color: #93c5fd; }
@@ -1043,7 +1171,7 @@
     box-shadow: 0 5px 18px rgba(0, 0, 0, 0.18);
 }
 .dark .ff-validation-shap-header h3 { color: #c4b5fd !important; }
-.dark .ff-validation-shap-header p,
+.dark .ff-validation-shap-header p { color: #a8b5c8 !important; }
 .dark .ff-validation-shap-panel .ff-empty-state p { color: #a8b5c8 !important; }
 .dark .ff-validation-shap-panel .ff-empty-state {
     background: #1e1b4b;
@@ -1052,4 +1180,29 @@
 .dark .ff-validation-shap-panel .ff-shap-plot {
     background: #1e293b;
     border-color: #334155;
+}
+.dark .ff-validation-sidebar .gr-group { border-top-color: #334155 !important; }
+.dark .ff-preview-info p {
+    background: #172554;
+    border-color: #1e40af;
+    color: #93c5fd !important;
+}
+.dark .ff-preview-table {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+}
+.dark .ff-preview-table .label {
+    background: #0f172a;
+    border-bottom-color: #334155;
+}
+.dark .ff-preview-table .label p { color: #94a3b8 !important; }
+.dark .ff-preview-table thead th {
+    background: #0f172a !important;
+    border-bottom-color: #334155 !important;
+    color: #94a3b8 !important;
+}
+.dark .ff-preview-table tbody td {
+    border-color: #263449 !important;
+    color: #cbd5e1 !important;
 }

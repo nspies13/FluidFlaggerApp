@@ -686,19 +686,21 @@ def build_train_tab() -> None:
                                  interactive=True, elem_classes="ff-top-radio")
 
                 gr.HTML('<hr class="ff-divider">')
-                with gr.Group():
-                    gr.HTML('<p class="ff-section-title" style="padding:8px 4px 2px">Training Data</p>')
-                    template_file = gr.File(
-                        label="Training template CSV", file_types=[".csv"],
+                gr.HTML('<p class="ff-section-title">Training Data</p>', elem_classes="ff-th")
+                template_file = gr.File(
+                    label="Training template CSV", file_types=[".csv"],
+                )
+                # A column, not a group: a group would paint its own panel
+                # behind this upload and make it read differently from the
+                # template upload directly above it.
+                with gr.Column(visible=True) as bmp_train_extras:
+                    fluids_file = gr.File(
+                        label="Fluid concentrations TSV (optional)",
+                        file_types=[".tsv", ".csv"],
                     )
-                    with gr.Group(visible=True) as bmp_train_extras:
-                        fluids_file = gr.File(
-                            label="Fluid concentrations TSV (optional)",
-                            file_types=[".tsv", ".csv"],
-                        )
 
                 gr.HTML('<hr class="ff-divider">')
-                gr.HTML('<p class="ff-section-title" style="padding:8px 4px 2px">Export Format</p>')
+                gr.HTML('<p class="ff-section-title">Export Format</p>', elem_classes="ff-th")
                 fmt_radio = gr.Radio(
                     [".joblib", ".pkl"], value=".joblib",
                     label="Model file format",
@@ -811,9 +813,8 @@ def build_review_tab() -> None:
                     max_lines=1,
                 )
                 gr.HTML('<hr class="ff-divider">')
-                with gr.Group():
-                    gr.HTML('<p class="ff-section-title">Load Predictions</p>', elem_classes="ff-th")
-                    review_file = gr.File(label="Upload predictions CSV", file_types=[".csv"])
+                gr.HTML('<p class="ff-section-title">Load Predictions</p>', elem_classes="ff-th")
+                review_file = gr.File(label="Upload predictions CSV", file_types=[".csv"])
                 review_status = gr.Markdown("", elem_classes="ff-status")
                 download_labels_btn = gr.DownloadButton(
                     "⬇  Download Labels", visible=False, variant="secondary"
@@ -944,8 +945,12 @@ def build_validate_tab() -> None:
                     '<strong>Contaminated</strong>.</p>'
                 )
 
+                # ``gr.Group`` paints a shared background behind its children,
+                # so the section separator is drawn by CSS on the group itself
+                # (``.ff-validation-sidebar .gr-group``; Gradio does not forward
+                # ``elem_classes`` for groups) rather than by an ``<hr>`` that
+                # would sit inside that shaded panel.
                 with gr.Group(visible=False) as validation_controls:
-                    gr.HTML('<hr class="ff-divider">')
                     gr.HTML('<p class="ff-section-title">Analysis settings</p>', elem_classes="ff-th")
                     label_column = gr.Dropdown(
                         choices=[],
@@ -964,7 +969,6 @@ def build_validate_tab() -> None:
                 # sidebar makes them available without taking space from the
                 # charts themselves.
                 with gr.Group(visible=False) as validation_report_downloads:
-                    gr.HTML('<hr class="ff-divider">')
                     gr.HTML('<p class="ff-section-title">Download report</p>', elem_classes="ff-th")
                     validation_html_download = gr.DownloadButton(
                         "⬇  Download HTML Report",
@@ -1001,7 +1005,10 @@ def build_validate_tab() -> None:
                 # The SHAP result belongs to the validation narrative, directly
                 # after the dashboard's calibration chart. It reuses the file
                 # selected in the sidebar rather than requesting another CSV.
-                with gr.Group(
+                # A column rather than a group: Gradio does not forward
+                # ``elem_classes`` on ``gr.Group``, so the panel styling would
+                # never reach the DOM.
+                with gr.Column(
                     visible=False,
                     elem_classes="ff-validation-shap-panel",
                 ) as validation_shap_section:
@@ -1220,6 +1227,15 @@ def build_validate_tab() -> None:
             _load_validation_file,
             inputs=[validation_file],
             outputs=_load_outputs,
+        ).then(
+            # ``validation_dashboard`` is a custom HTML component.  Gradio
+            # leaves its loading status pending after the upload event remounts
+            # it, so the freshly rendered charts stay at 20% opacity until the
+            # next interaction.  A no-op update settles that status without
+            # re-sending the markup.
+            lambda: gr.update(),
+            outputs=validation_dashboard,
+            show_progress="hidden",
         )
 
         _refresh_inputs = [validation_file, label_column, score_column]
